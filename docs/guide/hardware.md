@@ -36,6 +36,155 @@
 - n78 (3.5 GHz) 频段实验
 - 20 MHz 带宽 5G NR
 
+#### SDR 架构解析
+
+理解 SDR 的内部架构有助于调试和优化：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        USRP B210                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
+│  │   USB 3.0    │◄──►│    FPGA      │◄──►│   AD9361     │◄──► RF
+│  │  Interface   │    │  Spartan 6   │    │  Transceiver │   │
+│  └──────────────┘    └──────────────┘    └──────────────┘   │
+│         ▲                   │                               │
+│         │              Sample Rate                          │
+│         │              Conversion                           │
+│         └───────── USB 3.0 ~30 MB/s ────────────────────────│
+└─────────────────────────────────────────────────────────────┘
+```
+
+**核心组件：**
+
+| 组件 | USRP B210 | 功能 |
+|------|-----------|------|
+| **FPGA** | Xilinx Spartan 6 | 数字信号处理、采样率转换、USB 接口控制 |
+| **RF 芯片** | AD9361 | 射频收发器，支持 70MHz-6GHz，2x2 MIMO |
+| **USB 芯片** | Cypress FX3 | USB 3.0 SuperSpeed 接口 |
+
+**AD9361 射频芯片** 是这类 SDR 的核心：
+- 集成 ADC/DAC、混频器、滤波器、PLL
+- 可编程带宽 200kHz - 56MHz
+- 支持 TDD 和 FDD 模式
+
+### LibreSDR B210 (开源替代品)
+
+[LibreSDR B210](https://github.com/lmesserStep/LibreSDRB210) 是 USRP B210 的开源硬件克隆，价格更低：
+
+| 参数 | 规格 |
+|------|------|
+| 频率范围 | 70 MHz - 6 GHz |
+| 带宽 | 56 MHz (2x2 MIMO) |
+| FPGA | **Xilinx Artix 7 (XC7A100T)** |
+| RF 芯片 | AD9361 |
+| 接口 | USB 3.0 |
+| 价格 | ~$300-500 USD |
+
+::: warning 重要差异
+LibreSDR 使用 **Artix 7 FPGA**，而非原版 B210 的 Spartan 6。这意味着需要使用专门编译的固件！
+:::
+
+#### 为什么需要不同的固件？
+
+```
+原版 USRP B210:  Spartan 6 FPGA  →  usrp_b210_fpga.bin (官方)
+LibreSDR B210:   Artix 7 FPGA    →  usrp_b210_fpga.bin (LibreSDR 定制)
+```
+
+FPGA 固件包含：
+- **时钟管理逻辑** - 不同 FPGA 系列的 PLL 原语不同
+- **I/O 引脚配置** - 引脚映射可能不同
+- **DSP 核心** - 数字下变频、滤波器等
+
+由于 Artix 7 和 Spartan 6 的架构差异，官方固件无法直接使用。LibreSDR 社区提供了重新编译的固件。
+
+#### 驱动架构 (UHD)
+
+**UHD (USRP Hardware Driver)** 是 Ettus Research 开发的开源驱动框架：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    应用层 (srsRAN, GNU Radio)            │
+├─────────────────────────────────────────────────────────┤
+│                    UHD API (C++/Python)                  │
+├─────────────────────────────────────────────────────────┤
+│              UHD 核心 (设备发现、流控制)                  │
+├─────────────────────────────────────────────────────────┤
+│         USB 传输层 (libusb)  │  网络传输层 (UDP)         │
+├─────────────────────────────────────────────────────────┤
+│              FPGA 固件  │  固件加载器                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+| 组件 | 许可证 | 说明 |
+|------|--------|------|
+| UHD 驱动 | GPLv3 | 开源，可自由使用和修改 |
+| FPGA 源码 | 部分开源 | Ettus 提供部分源码 |
+| AD9361 驱动 | GPLv2 | ADI 官方开源驱动 |
+
+#### LibreSDR 设置步骤
+
+1. **安装 UHD 驱动**
+
+```bash
+# Ubuntu/Debian
+sudo add-apt-repository ppa:ettusresearch/uhd
+sudo apt update
+sudo apt install libuhd-dev uhd-host
+```
+
+2. **下载 UHD 镜像**
+
+```bash
+sudo /usr/lib/uhd/utils/uhd_images_downloader.py
+```
+
+3. **替换为 LibreSDR 固件**
+
+```bash
+# 下载 LibreSDR 专用固件
+wget https://github.com/lmesserStep/LibreSDRB210/raw/main/usrp_b210_fpga.bin
+
+# 替换官方固件 (备份原文件)
+sudo cp /usr/share/uhd/images/usrp_b210_fpga.bin \
+        /usr/share/uhd/images/usrp_b210_fpga.bin.bak
+sudo cp usrp_b210_fpga.bin /usr/share/uhd/images/
+```
+
+4. **验证设备**
+
+```bash
+uhd_usrp_probe
+```
+
+预期输出：
+```
+[INFO] [B200] Detected Device: B210
+[INFO] [B200] Loading FPGA image: /usr/share/uhd/images/usrp_b210_fpga.bin...
+[INFO] [B200] Operating over USB 3.
+[INFO] [B200] Register loopback test passed
+```
+
+::: tip 兼容性
+LibreSDR 固件已在 UHD 4.0-7.0 版本上测试通过。
+:::
+
+#### 许可证与法律注意事项
+
+| 方面 | 说明 |
+|------|------|
+| **硬件设计** | LibreSDR 是开源硬件，可自由复制 |
+| **UHD 驱动** | GPLv3，可商业使用但需开源修改 |
+| **FPGA 固件** | 社区编译，基于开源 USRP FPGA 代码 |
+| **RF 使用** | ⚠️ 需遵守当地无线电法规 |
+
+::: danger 射频合规
+无论使用哪种 SDR，发射信号前必须：
+- 获得适当的无线电执照
+- 使用屏蔽箱进行实验
+- 确保发射功率和频率合规
+:::
+
 ### USRP N310
 
 高性能版本，适合更大带宽实验：
