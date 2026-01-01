@@ -11,6 +11,9 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        # LibreSDR firmware directory (relative to flake root)
+        libreSDRImagesDir = "${self}/libresdr";
+        
         # Common packages
         commonPackages = with pkgs; [
           git
@@ -62,7 +65,7 @@
             buildInputs = commonPackages ++ sdrPackages;
             
             # Use LibreSDR custom FPGA firmware
-            UHD_IMAGES_DIR = "/home/licheng/Projects/nr-lab/libresdr";
+            UHD_IMAGES_DIR = libreSDRImagesDir;
             
             shellHook = ''
               echo "📡 NR Lab - SDR Environment"
@@ -87,7 +90,7 @@
             buildInputs = commonPackages ++ docsPackages ++ sdrPackages;
             
             # Use LibreSDR custom FPGA firmware
-            UHD_IMAGES_DIR = "/home/licheng/Projects/nr-lab/libresdr";
+            UHD_IMAGES_DIR = libreSDRImagesDir;
             
             shellHook = ''
               echo "🚀 NR Lab - Full Development Environment"
