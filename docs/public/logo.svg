@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="url(#grad1)"/>
+  <text x="50" y="58" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">5G</text>
+  <path d="M25 75 Q50 65 75 75" stroke="white" stroke-width="3" fill="none"/>
+  <path d="M30 68 Q50 60 70 68" stroke="white" stroke-width="2" fill="none"/>
+  <path d="M35 61 Q50 55 65 61" stroke="white" stroke-width="1.5" fill="none"/>
+</svg>
+

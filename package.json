@@ -1,0 +1,21 @@
+{
+  "name": "nr-lab",
+  "version": "1.0.0",
+  "description": "5G NR Lab Documentation - Open5GS & srsRAN with SDR",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitcode.com/tavimori/nr-lab.git"
+  },
+  "keywords": ["5g", "nr", "open5gs", "srsran", "sdr"],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

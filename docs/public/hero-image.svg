@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="towerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#skyGrad)"/>
+  
+  <!-- Grid lines -->
+  <g stroke="#334155" stroke-width="0.5" opacity="0.3">
+    <line x1="0" y1="50" x2="400" y2="50"/>
+    <line x1="0" y1="100" x2="400" y2="100"/>
+    <line x1="0" y1="150" x2="400" y2="150"/>
+    <line x1="0" y1="200" x2="400" y2="200"/>
+    <line x1="0" y1="250" x2="400" y2="250"/>
+    <line x1="50" y1="0" x2="50" y2="300"/>
+    <line x1="100" y1="0" x2="100" y2="300"/>
+    <line x1="150" y1="0" x2="150" y2="300"/>
+    <line x1="200" y1="0" x2="200" y2="300"/>
+    <line x1="250" y1="0" x2="250" y2="300"/>
+    <line x1="300" y1="0" x2="300" y2="300"/>
+    <line x1="350" y1="0" x2="350" y2="300"/>
+  </g>
+  
+  <!-- Cell Tower -->
+  <g transform="translate(200, 80)">
+    <!-- Tower base -->
+    <polygon points="0,0 -30,120 30,120" fill="url(#towerGrad)"/>
+    <!-- Tower sections -->
+    <line x1="-20" y1="30" x2="20" y2="30" stroke="#fff" stroke-width="2"/>
+    <line x1="-15" y1="60" x2="15" y2="60" stroke="#fff" stroke-width="2"/>
+    <line x1="-10" y1="90" x2="10" y2="90" stroke="#fff" stroke-width="2"/>
+    <!-- Antenna -->
+    <rect x="-3" y="-30" width="6" height="30" fill="#667eea"/>
+    <circle cx="0" cy="-35" r="5" fill="#f59e0b"/>
+  </g>
+  
+  <!-- Radio waves -->
+  <g fill="none" stroke="#667eea" stroke-width="2" opacity="0.6">
+    <path d="M160 60 Q200 50 240 60" />
+    <path d="M140 45 Q200 30 260 45" />
+    <path d="M120 30 Q200 10 280 30" />
+  </g>
+  
+  <!-- UE Device -->
+  <g transform="translate(80, 200)">
+    <rect x="0" y="0" width="30" height="50" rx="3" fill="#4f46e5"/>
+    <rect x="3" y="5" width="24" height="35" fill="#1e1b4b"/>
+    <circle cx="15" cy="45" r="3" fill="#6366f1"/>
+    <!-- Signal -->
+    <path d="M35 10 Q45 5 55 10" stroke="#22d3ee" stroke-width="2" fill="none"/>
+    <path d="M40 5 Q50 -2 60 5" stroke="#22d3ee" stroke-width="2" fill="none"/>
+  </g>
+  
+  <!-- Core Network Box -->
+  <g transform="translate(280, 180)">
+    <rect x="0" y="0" width="80" height="60" rx="5" fill="#4f46e5"/>
+    <rect x="5" y="5" width="70" height="50" rx="3" fill="#1e1b4b"/>
+    <!-- Server lights -->
+    <circle cx="15" cy="15" r="3" fill="#22c55e"/>
+    <circle cx="25" cy="15" r="3" fill="#22c55e"/>
+    <circle cx="35" cy="15" r="3" fill="#f59e0b"/>
+    <!-- Text -->
+    <text x="40" y="40" font-family="monospace" font-size="10" fill="#a5b4fc" text-anchor="middle">5GC</text>
+  </g>
+  
+  <!-- Connection lines -->
+  <g stroke="#22d3ee" stroke-width="2" stroke-dasharray="5,5">
+    <line x1="200" y1="200" x2="280" y2="210"/>
+    <line x1="110" y1="200" x2="170" y2="180"/>
+  </g>
+  
+  <!-- Labels -->
+  <text x="80" y="270" font-family="Arial" font-size="12" fill="#a5b4fc" text-anchor="middle">UE</text>
+  <text x="200" y="220" font-family="Arial" font-size="12" fill="#a5b4fc" text-anchor="middle">gNB</text>
+  <text x="320" y="260" font-family="Arial" font-size="12" fill="#a5b4fc" text-anchor="middle">Open5GS</text>
+</svg>
+
