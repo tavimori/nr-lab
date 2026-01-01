@@ -144,12 +144,34 @@ sudo /usr/lib/uhd/utils/uhd_images_downloader.py
 ```bash
 # 下载 LibreSDR 专用固件
 wget https://github.com/lmesserStep/LibreSDRB210/raw/main/usrp_b210_fpga.bin
+```
 
-# 替换官方固件 (备份原文件)
+**方法 A：替换系统固件文件**
+
+```bash
+# 备份原文件
 sudo cp /usr/share/uhd/images/usrp_b210_fpga.bin \
         /usr/share/uhd/images/usrp_b210_fpga.bin.bak
+
+# 替换为 LibreSDR 固件
 sudo cp usrp_b210_fpga.bin /usr/share/uhd/images/
 ```
+
+**方法 B：直接烧写 FPGA (推荐)**
+
+```bash
+# 直接将固件烧写到设备，不修改系统文件
+sudo uhd_image_loader --args="type=b200" --no-fw --fpga-path="./usrp_b210_fpga.bin"
+```
+
+| 方法 | 优点 | 缺点 |
+|------|------|------|
+| 方法 A | 一次替换，永久生效 | 需要 root 权限修改系统文件 |
+| 方法 B | 不修改系统文件，便于切换 | 每次重启设备后需重新加载 |
+
+::: tip 提示
+`--no-fw` 参数表示只烧写 FPGA 镜像，不更新 FX3 固件。对于 LibreSDR 克隆设备，通常只需要更换 FPGA 固件。
+:::
 
 4. **验证设备**
 
