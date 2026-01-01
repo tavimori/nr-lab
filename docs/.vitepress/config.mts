@@ -28,6 +28,7 @@ export default defineConfig({
                 { text: '快速开始', link: '/guide/getting-started' },
                 { text: '环境准备', link: '/guide/prerequisites' },
                 { text: '硬件需求', link: '/guide/hardware' },
+                { text: '频谱分析', link: '/guide/spectrum-analysis' },
               ]
             }
           ],
@@ -93,6 +94,7 @@ export default defineConfig({
                 { text: 'Quick Start', link: '/en/guide/getting-started' },
                 { text: 'Prerequisites', link: '/en/guide/prerequisites' },
                 { text: 'Hardware Requirements', link: '/en/guide/hardware' },
+                { text: 'Spectrum Analysis', link: '/en/guide/spectrum-analysis' },
               ]
             }
           ],

@@ -6,15 +6,34 @@
 
 ## 🚀 快速开始 / Quick Start
 
-### 安装依赖 / Install Dependencies
+### 使用 Nix (推荐) / Using Nix (Recommended)
+
+本项目提供三种开发环境：
+
+| 命令 | 环境 | 用途 |
+|------|------|------|
+| `nix develop` | 📖 Documentation | 文档开发 (Node.js) |
+| `nix develop .#sdr` | 📡 SDR | 频谱分析实验 (UHD, GQRX, GNU Radio) |
+| `nix develop .#full` | 🚀 Full | 完整环境 (文档 + SDR) |
 
 ```bash
-npm install
+# 进入文档开发环境
+nix develop
+
+# 或进入 SDR 实验环境
+nix develop .#sdr
+
+# 或进入完整环境
+nix develop .#full
 ```
 
-### 本地开发 / Local Development
+### 文档开发 / Documentation Development
 
 ```bash
+# 安装依赖
+npm install
+
+# 本地开发
 npm run docs:dev
 ```
 
@@ -32,6 +51,23 @@ npm run docs:build
 npm run docs:preview
 ```
 
+### SDR 工具 / SDR Tools
+
+进入 SDR 环境后可使用以下工具：
+
+```bash
+# 检测 USRP 设备
+uhd_usrp_probe
+
+# 频谱分析
+uhd_fft -f 2.45e9 -s 20e6
+
+# GUI 工具
+gqrx
+sdrpp
+gnuradio-companion
+```
+
 ## 📖 文档结构 / Documentation Structure
 
 ```
@@ -42,7 +78,8 @@ docs/
 ├── guide/                   # 入门指南 / Getting Started
 │   ├── getting-started.md
 │   ├── prerequisites.md
-│   └── hardware.md
+│   ├── hardware.md
+│   └── spectrum-analysis.md # 频谱分析实验 / Spectrum Analysis
 ├── open5gs/                 # Open5GS 核心网 / Core Network
 │   ├── index.md
 │   ├── installation.md

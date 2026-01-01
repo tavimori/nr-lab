@@ -29,6 +29,10 @@ features:
     title: SDR 硬件
     details: USRP、BladeRF、LimeSDR 等软件定义无线电设备配置指南
     link: /guide/hardware
+  - icon: 📊
+    title: 频谱分析
+    details: 使用 SDR 观察和分析蜂窝网络、WiFi 等无线信号
+    link: /guide/spectrum-analysis
   - icon: 📱
     title: 端到端测试
     details: 从 UE 注册到数据传输的完整测试流程
