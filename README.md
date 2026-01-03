@@ -8,13 +8,14 @@
 
 ### 使用 Nix (推荐) / Using Nix (Recommended)
 
-本项目提供三种开发环境：
+本项目提供多种开发环境：
 
 | 命令 | 环境 | 用途 |
 |------|------|------|
 | `nix develop` | 📖 Documentation | 文档开发 (Node.js) |
 | `nix develop .#sdr` | 📡 SDR | 频谱分析实验 (UHD, GQRX, GNU Radio) |
-| `nix develop .#full` | 🚀 Full | 完整环境 (文档 + SDR) |
+| `nix develop .#5g` | 📶 5G | 5G 网络实验 (srsRAN gNB) |
+| `nix develop .#full` | 🚀 Full | 完整环境 (文档 + SDR + 5G) |
 
 ```bash
 # 进入文档开发环境
@@ -23,9 +24,14 @@ nix develop
 # 或进入 SDR 实验环境
 nix develop .#sdr
 
+# 或进入 5G 网络环境 (首次需要 --accept-flake-config)
+nix develop .#5g --accept-flake-config
+
 # 或进入完整环境
-nix develop .#full
+nix develop .#full --accept-flake-config
 ```
+
+> **Note**: `--accept-flake-config` 用于信任项目的二进制缓存配置，可从 [Cachix](https://nr-lab.cachix.org) 下载预编译的 srsRAN，避免本地编译（约需 30 分钟）。
 
 ### 文档开发 / Documentation Development
 

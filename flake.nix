@@ -1,6 +1,12 @@
 {
   description = "NR Lab - 5G NR Documentation & SDR Development Environment";
 
+  # Binary cache configuration for pre-built srsran-project
+  nixConfig = {
+    extra-substituters = [ "https://nr-lab.cachix.org" ];
+    extra-trusted-public-keys = [ "nr-lab.cachix.org-1:Yxp09CtuwlBg24SbYXNjVLfdoMROdZUwTXs4xaAGs20=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
