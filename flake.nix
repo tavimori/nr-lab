@@ -9,7 +9,15 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # Overlay for custom packages
+        overlay = final: prev: {
+          srsran-project = final.callPackage ./packages/srsran-project.nix { };
+        };
+        
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ overlay ];
+        };
         
         # LibreSDR firmware directory (relative to flake root)
         libreSDRImagesDir = "${self}/libresdr";
@@ -39,6 +47,16 @@
           # Utilities
           python3
           python3Packages.numpy
+        ];
+        
+        # 5G packages (gNB + 5GC)
+        fiveGPackages = with pkgs; [
+          # 5G Core Network
+          # TODO: open5gs disabled due to mongosh build issue in nixpkgs
+          # open5gs
+          
+          # 5G gNB (custom build from srsRAN Project)
+          srsran-project
         ];
       in
       {
@@ -85,9 +103,33 @@
             '';
           };
           
-          # Full environment (docs + SDR)
+          # 5G environment (gNB + 5GC)
+          "5g" = pkgs.mkShell {
+            buildInputs = commonPackages ++ sdrPackages ++ fiveGPackages;
+            
+            # Use LibreSDR custom FPGA firmware
+            UHD_IMAGES_DIR = libreSDRImagesDir;
+            
+            shellHook = ''
+              echo "📶 NR Lab - 5G Environment"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "UHD: $(uhd_config_info --version 2>/dev/null || echo 'installed')"
+              echo "FPGA: $UHD_IMAGES_DIR (LibreSDR)"
+              echo ""
+              echo "5G Core (Open5GS):"
+              echo "  open5gs-*          - 5GC network functions"
+              echo ""
+              echo "5G gNB (srsRAN Project):"
+              echo "  gnb                - 5G gNB application"
+              echo ""
+              echo "💡 For docs, use: nix develop .#default"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            '';
+          };
+          
+          # Full environment (docs + SDR + 5G)
           full = pkgs.mkShell {
-            buildInputs = commonPackages ++ docsPackages ++ sdrPackages;
+            buildInputs = commonPackages ++ docsPackages ++ sdrPackages ++ fiveGPackages;
             
             # Use LibreSDR custom FPGA firmware
             UHD_IMAGES_DIR = libreSDRImagesDir;
@@ -104,6 +146,9 @@
               echo ""
               echo "SDR Tools:"
               echo "  uhd_fft / gqrx / sdrpp / gnuradio-companion"
+              echo ""
+              echo "5G Stack:"
+              echo "  open5gs-* (5GC) / gnb (gNB)"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             '';
           };
