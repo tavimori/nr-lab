@@ -15,6 +15,22 @@
   };
 
   outputs = { self, nixpkgs, nixpkgs-stable, flake-utils }:
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NixOS Modules (system-independent)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+      nixosModules = {
+        # Open5GS 5G/LTE Core Network module
+        open5gs = import ./modules/open5gs;
+        
+        # Alias for convenience
+        default = self.nixosModules.open5gs;
+      };
+    } //
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Per-system outputs (devShells, packages)
+    # ═══════════════════════════════════════════════════════════════════════════
     flake-utils.lib.eachDefaultSystem (system:
       let
         # Stable pkgs for open5gs (mongosh build issue in unstable)

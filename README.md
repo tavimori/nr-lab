@@ -116,6 +116,89 @@ This documentation supports bilingual:
 | 基站 / RAN | srsRAN Project | 开源 5G gNB / Open source 5G gNB |
 | 射频 / RF | USRP B210 | SDR 硬件 / SDR hardware |
 
+## 🔧 NixOS Module
+
+本项目提供 NixOS module，可声明式配置 Open5GS 5G/LTE 核心网。
+
+This project provides NixOS modules for declarative Open5GS 5G/LTE core network configuration.
+
+### 基本用法 / Basic Usage
+
+```nix
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nr-lab.url = "github:your-username/nr-lab";
+  };
+
+  outputs = { nixpkgs, nr-lab, ... }: {
+    nixosConfigurations.your-host = nixpkgs.lib.nixosSystem {
+      modules = [
+        nr-lab.nixosModules.open5gs
+        {
+          services.open5gs = {
+            enable = true;
+            mode = "5g-sa";  # or "lte" or "both"
+            
+            # PLMN configuration
+            plmn = {
+              mcc = "001";  # Test MCC
+              mnc = "01";   # Test MNC
+            };
+            
+            # Network name shown on devices
+            networkName = "My 5G Lab";
+            
+            # User plane configuration
+            userPlane = {
+              subnet = "10.45.0.0/16";
+              gateway = "10.45.0.1";
+              dnn = "internet";
+            };
+            
+            # gNB connection (NGAP/N2 interface)
+            ngap.address = "192.168.1.100";  # AMF address for gNB
+            
+            # User plane (GTP-U/N3 interface)
+            gtpu.address = "192.168.1.100";  # UPF address for gNB
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+### 配置选项 / Configuration Options
+
+| 选项 / Option | 默认值 / Default | 说明 / Description |
+|---------------|------------------|-------------------|
+| `enable` | `false` | 启用 Open5GS / Enable Open5GS |
+| `mode` | `"5g-sa"` | 网络模式: `5g-sa`, `lte`, `both` |
+| `plmn.mcc` | `"001"` | 移动国家码 / Mobile Country Code |
+| `plmn.mnc` | `"01"` | 移动网络码 / Mobile Network Code |
+| `networkName` | `"NR Lab"` | 网络名称 / Network name |
+| `tac` | `1` | 跟踪区码 / Tracking Area Code |
+| `userPlane.subnet` | `"10.45.0.0/16"` | UE IP 池 / UE IP pool |
+| `userPlane.dnn` | `"internet"` | 数据网络名 / Data Network Name |
+| `mongodb.enable` | `true` | 启用 MongoDB / Enable MongoDB |
+| `tun.enable` | `true` | 创建 ogstun 接口 / Create ogstun interface |
+| `nat.enable` | `true` | 启用 NAT / Enable NAT for UE traffic |
+
+### 服务管理 / Service Management
+
+```bash
+# 查看所有 Open5GS 服务状态
+systemctl status 'open5gs-*'
+
+# 重启 AMF
+sudo systemctl restart open5gs-amf
+
+# 查看日志
+journalctl -u open5gs-amf -f
+```
+
 ## 📄 许可证 / License
 
 MIT License
