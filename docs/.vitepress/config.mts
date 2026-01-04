@@ -66,12 +66,12 @@ export default defineConfig({
           text: '最后更新于'
         },
         editLink: {
-          pattern: 'https://github.com/your-repo/nr-lab/edit/main/docs/:path',
+          pattern: 'https://github.com/tavimori/nr-lab/edit/main/docs/:path',
           text: '在 GitHub 上编辑此页面'
         },
         footer: {
           message: 'Released under the MIT License.',
-          copyright: 'Copyright © 2024-present NR Lab'
+          copyright: 'Copyright © 2025-present NR Lab'
         }
       }
     },
@@ -142,7 +142,8 @@ export default defineConfig({
     siteTitle: 'NR Lab',
     
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/your-repo/nr-lab' }
+      { icon: 'github', link: 'https://github.com/tavimori/nr-lab' },
+      { icon: 'gitcode', link: 'https://gitcode.com/tavimori/nr-lab'}
     ],
 
     search: {

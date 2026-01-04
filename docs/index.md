@@ -14,7 +14,11 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: 查看 GitHub
-      link: https://github.com/your-repo/nr-lab
+      link: https://github.com/tavimori/nr-lab
+    - theme: alt
+      text: 查看 GitCode
+      link: https://gitcode.com/tavimori/nr-lab
+
 
 features:
   - icon: 🌐
