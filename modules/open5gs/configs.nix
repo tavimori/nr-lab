@@ -6,18 +6,26 @@
 { lib, cfg, defaultAddresses }:
 
 let
-  # Helper to create SBI (Service-Based Interface) configuration
-  mkSbi = addr: port: {
+  # Helper to create SBI configuration with SCP-based indirect communication
+  # This is the recommended pattern for Open5GS 5G SA
+  mkSbiWithScp = addr: port: {
     server = [{ address = addr; inherit port; }];
     client = {
-      nrf = [{ uri = "http://${defaultAddresses.nrf}:7777"; }];
       scp = [{ uri = "http://${defaultAddresses.scp}:7777"; }];
     };
   };
   
-  # Common logger configuration
-  logger = {
-    file = "/var/log/open5gs/open5gs.log";
+  # Helper for NRF client (only used by SCP)
+  mkSbiWithNrf = addr: port: {
+    server = [{ address = addr; inherit port; }];
+    client = {
+      nrf = [{ uri = "http://${defaultAddresses.nrf}:7777"; }];
+    };
+  };
+  
+  # Logger configuration generator - each NF gets its own log file
+  mkLogger = name: {
+    file = "/var/log/open5gs/${name}.log";
     level = "info";
   };
   
@@ -32,7 +40,7 @@ in {
   # NRF - NF Repository Function
   # Central registry for all network functions
   nrf = {
-    inherit logger;
+    logger = mkLogger "nrf";
     db_uri = db_uri;
     
     nrf = {
@@ -47,38 +55,38 @@ in {
   
   # SCP - Service Communication Proxy
   # Routes messages between network functions
+  # SCP connects directly to NRF (not via SCP itself)
   scp = {
-    inherit logger;
-    db_uri = db_uri;
+    logger = mkLogger "scp";
     
     scp = {
-      sbi = {
-        server = [{
-          address = cfg.addresses.scp or defaultAddresses.scp;
-          port = 7777;
-        }];
-        client = {
-          nrf = [{
-            uri = "http://${cfg.addresses.nrf or defaultAddresses.nrf}:7777";
-          }];
-        };
-      };
+      sbi = mkSbiWithNrf (cfg.addresses.scp or defaultAddresses.scp) 7777;
     };
   };
   
   # AMF - Access and Mobility Management Function
   # Handles UE registration, mobility, and connection management
+  # Reference: https://github.com/open5gs/open5gs/blob/main/configs/open5gs/amf.yaml.in
   amf = {
-    inherit logger;
-    db_uri = db_uri;
+    logger = mkLogger "amf";
     
     amf = {
-      sbi = mkSbi (cfg.addresses.amf or defaultAddresses.amf) 7777;
+      sbi = {
+        server = [{
+          address = cfg.addresses.amf or defaultAddresses.amf;
+          port = 7777;
+        }];
+        client = {
+          # Indirect Communication by Delegating to SCP
+          scp = [{
+            uri = "http://${defaultAddresses.scp}:7777";
+          }];
+        };
+      };
       
       ngap = {
         server = [{
           address = cfg.ngap.address;
-          port = cfg.ngap.port;
         }];
       };
       
@@ -139,11 +147,10 @@ in {
   # SMF - Session Management Function
   # Manages PDU sessions for data connectivity
   smf = {
-    inherit logger;
-    db_uri = db_uri;
+    logger = mkLogger "smf";
     
     smf = {
-      sbi = mkSbi (cfg.addresses.smf or defaultAddresses.smf) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.smf or defaultAddresses.smf) 7777;
       
       pfcp = {
         server = [{
@@ -188,16 +195,13 @@ in {
       mtu = 1400;
       
       ctf.enabled = "auto";
-      
-      # Note: freeDiameter is only needed for LTE/4G interworking (Gx interface)
-      # For pure 5G SA, it's not required
     };
   };
   
   # UPF - User Plane Function  
   # Handles user data traffic
   upf = {
-    inherit logger;
+    logger = mkLogger "upf";
     
     upf = {
       pfcp = {
@@ -230,21 +234,19 @@ in {
   
   # AUSF - Authentication Server Function
   ausf = {
-    inherit logger;
-    db_uri = db_uri;
+    logger = mkLogger "ausf";
     
     ausf = {
-      sbi = mkSbi (cfg.addresses.ausf or defaultAddresses.ausf) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.ausf or defaultAddresses.ausf) 7777;
     };
   };
   
   # UDM - Unified Data Management
   udm = {
-    inherit logger;
-    db_uri = db_uri;
+    logger = mkLogger "udm";
     
     udm = {
-      sbi = mkSbi (cfg.addresses.udm or defaultAddresses.udm) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.udm or defaultAddresses.udm) 7777;
     };
     
     hnet = [{
@@ -255,53 +257,60 @@ in {
   };
   
   # UDR - Unified Data Repository
+  # UDR is the only 5G NF that directly accesses the database
   udr = {
-    inherit logger;
+    logger = mkLogger "udr";
     db_uri = db_uri;
     
     udr = {
-      sbi = mkSbi (cfg.addresses.udr or defaultAddresses.udr) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.udr or defaultAddresses.udr) 7777;
     };
   };
   
   # PCF - Policy Control Function
   pcf = {
-    inherit logger;
+    logger = mkLogger "pcf";
     db_uri = db_uri;
     
     pcf = {
-      sbi = mkSbi (cfg.addresses.pcf or defaultAddresses.pcf) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.pcf or defaultAddresses.pcf) 7777;
     };
   };
   
   # NSSF - Network Slice Selection Function
+  # Reference: https://github.com/open5gs/open5gs/blob/main/configs/open5gs/nssf.yaml.in
   nssf = {
-    inherit logger;
+    logger = mkLogger "nssf";
     
     nssf = {
-      sbi = mkSbi (cfg.addresses.nssf or defaultAddresses.nssf) 7777;
-      
-      # Network Slice Instance configuration  
-      # Format for Open5GS 2.7.x
-      nsi = [
-        {
-          addr = cfg.addresses.nrf or defaultAddresses.nrf;
+      sbi = {
+        server = [{
+          address = cfg.addresses.nssf or defaultAddresses.nssf;
           port = 7777;
-          s_nssai = {
-            sst = 1;
-          };
-        }
-      ];
+        }];
+        client = {
+          scp = [{
+            uri = "http://${defaultAddresses.scp}:7777";
+          }];
+          # Network Slice Instance - points to NRF for each slice
+          nsi = [{
+            uri = "http://${defaultAddresses.nrf}:7777";
+            s_nssai = {
+              sst = 1;  # eMBB slice
+            };
+          }];
+        };
+      };
     };
   };
   
   # BSF - Binding Support Function
   bsf = {
-    inherit logger;
+    logger = mkLogger "bsf";
     db_uri = db_uri;
     
     bsf = {
-      sbi = mkSbi (cfg.addresses.bsf or defaultAddresses.bsf) 7777;
+      sbi = mkSbiWithScp (cfg.addresses.bsf or defaultAddresses.bsf) 7777;
     };
   };
   
@@ -311,7 +320,7 @@ in {
   
   # MME - Mobility Management Entity
   mme = {
-    inherit logger;
+    logger = mkLogger "mme";
     db_uri = db_uri;
     
     mme = {
@@ -377,7 +386,7 @@ in {
   
   # HSS - Home Subscriber Server
   hss = {
-    inherit logger;
+    logger = mkLogger "hss";
     db_uri = db_uri;
     
     hss = {
@@ -387,7 +396,7 @@ in {
   
   # SGWC - Serving Gateway Control Plane
   sgwc = {
-    inherit logger;
+    logger = mkLogger "sgwc";
     
     sgwc = {
       gtpc = {
@@ -416,7 +425,7 @@ in {
   
   # SGWU - Serving Gateway User Plane
   sgwu = {
-    inherit logger;
+    logger = mkLogger "sgwu";
     
     sgwu = {
       pfcp = {
@@ -435,7 +444,7 @@ in {
   
   # PCRF - Policy and Charging Rules Function
   pcrf = {
-    inherit logger;
+    logger = mkLogger "pcrf";
     db_uri = db_uri;
     
     pcrf = {

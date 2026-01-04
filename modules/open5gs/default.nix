@@ -20,11 +20,11 @@ let
   
   # Common network function service generator
   mkNfService = name: configFile: {
-    description = "Open5GS ${lib.toUpper name}";
+    description = "Open5GS ${lib.toUpper name}d";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ] 
       ++ lib.optional cfg.mongodb.enable "mongodb.service"
-      ++ lib.optional (name != "nrf") "open5gs-nrf.service";
+      ++ lib.optional (name != "nrf") "open5gs-nrfd.service";
     requires = lib.optional cfg.mongodb.enable "mongodb.service";
     
     serviceConfig = {
@@ -335,7 +335,7 @@ in {
         open5gs-ogstun = {
           description = "Open5GS TUN Device Setup";
           wantedBy = [ "multi-user.target" ];
-          before = [ "open5gs-upf.service" ];
+          before = [ "open5gs-upfd.service" ];
           
           serviceConfig = {
             Type = "oneshot";
@@ -368,20 +368,20 @@ in {
       })
       # 5G SA Network Functions
       (lib.mkIf (cfg.mode == "5g-sa" || cfg.mode == "both") {
-        open5gs-nrf = mkNfService "nrf" "/etc/open5gs/nrf.yaml";
-        open5gs-scp = mkNfService "scp" "/etc/open5gs/scp.yaml" // {
-          after = [ "network.target" "open5gs-nrf.service" ];
+        open5gs-nrfd = mkNfService "nrf" "/etc/open5gs/nrf.yaml";
+        open5gs-scpd = mkNfService "scp" "/etc/open5gs/scp.yaml" // {
+          after = [ "network.target" "open5gs-nrfd.service" ];
         };
-        open5gs-ausf = mkNfService "ausf" "/etc/open5gs/ausf.yaml";
-        open5gs-udm = mkNfService "udm" "/etc/open5gs/udm.yaml";
-        open5gs-udr = mkNfService "udr" "/etc/open5gs/udr.yaml";
-        open5gs-pcf = mkNfService "pcf" "/etc/open5gs/pcf.yaml";
-        open5gs-nssf = mkNfService "nssf" "/etc/open5gs/nssf.yaml";
-        open5gs-bsf = mkNfService "bsf" "/etc/open5gs/bsf.yaml";
-        open5gs-amf = mkNfService "amf" "/etc/open5gs/amf.yaml";
-        open5gs-smf = mkNfService "smf" "/etc/open5gs/smf.yaml";
-        open5gs-upf = mkNfService "upf" "/etc/open5gs/upf.yaml" // {
-          after = [ "network.target" "open5gs-ogstun.service" "open5gs-nrf.service" ];
+        open5gs-ausfd = mkNfService "ausf" "/etc/open5gs/ausf.yaml";
+        open5gs-udmd = mkNfService "udm" "/etc/open5gs/udm.yaml";
+        open5gs-udrd = mkNfService "udr" "/etc/open5gs/udr.yaml";
+        open5gs-pcfd = mkNfService "pcf" "/etc/open5gs/pcf.yaml";
+        open5gs-nssfd = mkNfService "nssf" "/etc/open5gs/nssf.yaml";
+        open5gs-bsfd = mkNfService "bsf" "/etc/open5gs/bsf.yaml";
+        open5gs-amfd = mkNfService "amf" "/etc/open5gs/amf.yaml";
+        open5gs-smfd = mkNfService "smf" "/etc/open5gs/smf.yaml";
+        open5gs-upfd = mkNfService "upf" "/etc/open5gs/upf.yaml" // {
+          after = [ "network.target" "open5gs-ogstun.service" "open5gs-nrfd.service" ];
           requires = [ "open5gs-ogstun.service" ];
           serviceConfig = {
             Type = "simple";
@@ -398,11 +398,11 @@ in {
       
       # LTE Network Functions
       (lib.mkIf (cfg.mode == "lte" || cfg.mode == "both") {
-        open5gs-mme = mkNfService "mme" "/etc/open5gs/mme.yaml";
-        open5gs-hss = mkNfService "hss" "/etc/open5gs/hss.yaml";
-        open5gs-sgwc = mkNfService "sgwc" "/etc/open5gs/sgwc.yaml";
-        open5gs-sgwu = mkNfService "sgwu" "/etc/open5gs/sgwu.yaml";
-        open5gs-pcrf = mkNfService "pcrf" "/etc/open5gs/pcrf.yaml";
+        open5gs-mmed = mkNfService "mme" "/etc/open5gs/mme.yaml";
+        open5gs-hssd = mkNfService "hss" "/etc/open5gs/hss.yaml";
+        open5gs-sgwcd = mkNfService "sgwc" "/etc/open5gs/sgwc.yaml";
+        open5gs-sgwud = mkNfService "sgwu" "/etc/open5gs/sgwu.yaml";
+        open5gs-pcrfd = mkNfService "pcrf" "/etc/open5gs/pcrf.yaml";
       })
     ];
     
