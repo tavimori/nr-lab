@@ -37,6 +37,7 @@ let
       DynamicUser = lib.mkDefault true;
       StateDirectory = "open5gs";
       ConfigurationDirectory = "open5gs";
+      LogsDirectory = "open5gs";  # Creates /var/log/open5gs with correct permissions
       
       # Allow binding to privileged ports if needed
       AmbientCapabilities = lib.mkIf (name == "upf") [ "CAP_NET_ADMIN" ];
@@ -156,6 +157,13 @@ in {
         description = "Whether to enable and configure MongoDB for Open5GS.";
       };
       
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.mongodb-ce;
+        defaultText = lib.literalExpression "pkgs.mongodb-ce";
+        description = "The MongoDB package to use. Use mongodb-ce for better binary cache support.";
+      };
+      
       uri = lib.mkOption {
         type = lib.types.str;
         default = "mongodb://127.0.0.1:27017/open5gs";
@@ -263,7 +271,9 @@ in {
     
     services.mongodb = lib.mkIf cfg.mongodb.enable {
       enable = true;
+      package = cfg.mongodb.package;
     };
+    
     
     # ─────────────────────────────────────────────────────────────────────────────
     # NAT Configuration
@@ -381,6 +391,7 @@ in {
             # UPF needs root for TUN device access
             DynamicUser = false;
             User = "root";
+            LogsDirectory = "open5gs";
           };
         };
       })
@@ -404,12 +415,19 @@ in {
       allowedUDPPorts = [ 2152 ];
       
       # Allow SCTP for NGAP (5G) / S1AP (LTE)
-      # NixOS doesn't have allowedSCTPPorts, so we use iptables directly
-      extraCommands = ''
+      # NixOS doesn't have allowedSCTPPorts, so we handle it manually
+      # Use nftables syntax if nftables is enabled, otherwise use iptables
+      extraInputRules = lib.mkIf config.networking.nftables.enable ''
+        sctp dport ${toString cfg.ngap.port} accept comment "Open5GS NGAP (5G)"
+        sctp dport 36412 accept comment "Open5GS S1AP (LTE)"
+      '';
+      
+      # Fallback to iptables if nftables is not enabled
+      extraCommands = lib.mkIf (!config.networking.nftables.enable) ''
         ${pkgs.iptables}/bin/iptables -A INPUT -p sctp --dport ${toString cfg.ngap.port} -j ACCEPT
         ${pkgs.iptables}/bin/iptables -A INPUT -p sctp --dport 36412 -j ACCEPT
       '';
-      extraStopCommands = ''
+      extraStopCommands = lib.mkIf (!config.networking.nftables.enable) ''
         ${pkgs.iptables}/bin/iptables -D INPUT -p sctp --dport ${toString cfg.ngap.port} -j ACCEPT || true
         ${pkgs.iptables}/bin/iptables -D INPUT -p sctp --dport 36412 -j ACCEPT || true
       '';

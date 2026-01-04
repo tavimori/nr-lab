@@ -129,6 +129,10 @@ in {
       };
       
       amf_name = "open5gs-amf0";
+      
+      time = {
+        t3512 = { value = 540; };  # Periodic registration update timer (9 minutes)
+      };
     };
   };
   
@@ -185,7 +189,8 @@ in {
       
       ctf.enabled = "auto";
       
-      freeDiameter = "/etc/open5gs/freeDiameter/smf.conf";
+      # Note: freeDiameter is only needed for LTE/4G interworking (Gx interface)
+      # For pure 5G SA, it's not required
     };
   };
   
@@ -272,14 +277,21 @@ in {
   # NSSF - Network Slice Selection Function
   nssf = {
     inherit logger;
-    db_uri = db_uri;
     
     nssf = {
       sbi = mkSbi (cfg.addresses.nssf or defaultAddresses.nssf) 7777;
       
-      nsi = [{
-        s_nssai = { sst = 1; };
-      }];
+      # Network Slice Instance configuration  
+      # Format for Open5GS 2.7.x
+      nsi = [
+        {
+          addr = cfg.addresses.nrf or defaultAddresses.nrf;
+          port = 7777;
+          s_nssai = {
+            sst = 1;
+          };
+        }
+      ];
     };
   };
   
