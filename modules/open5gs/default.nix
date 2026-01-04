@@ -400,11 +400,19 @@ in {
     # ─────────────────────────────────────────────────────────────────────────────
     
     networking.firewall = {
-      # Allow SCTP for NGAP (5G) / S1AP (LTE)
-      allowedSCTPPorts = [ cfg.ngap.port 36412 ];
-      
       # Allow GTP-U (UDP 2152)
       allowedUDPPorts = [ 2152 ];
+      
+      # Allow SCTP for NGAP (5G) / S1AP (LTE)
+      # NixOS doesn't have allowedSCTPPorts, so we use iptables directly
+      extraCommands = ''
+        ${pkgs.iptables}/bin/iptables -A INPUT -p sctp --dport ${toString cfg.ngap.port} -j ACCEPT
+        ${pkgs.iptables}/bin/iptables -A INPUT -p sctp --dport 36412 -j ACCEPT
+      '';
+      extraStopCommands = ''
+        ${pkgs.iptables}/bin/iptables -D INPUT -p sctp --dport ${toString cfg.ngap.port} -j ACCEPT || true
+        ${pkgs.iptables}/bin/iptables -D INPUT -p sctp --dport 36412 -j ACCEPT || true
+      '';
     };
   };
 }
