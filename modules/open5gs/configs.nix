@@ -6,6 +6,8 @@
 { lib, cfg, defaultAddresses }:
 
 let
+  # Get the package path for FreeDiameter extensions and TLS certs
+  pkgPath = cfg.package;
   # Helper to create SBI configuration with SCP-based indirect communication
   # This is the recommended pattern for Open5GS 5G SA
   mkSbiWithScp = addr: port: {
@@ -146,11 +148,15 @@ in {
   
   # SMF - Session Management Function
   # Manages PDU sessions for data connectivity
+  # In LTE mode, SMF also acts as PGW-c and uses Diameter (Gx) to connect to PCRF
   smf = {
     logger = mkLogger "smf";
     
     smf = {
       sbi = mkSbiWithScp (cfg.addresses.smf or defaultAddresses.smf) 7777;
+      
+      # FreeDiameter for Gx interface (SMF/PGW-c <-> PCRF) - used in LTE mode
+      freeDiameter = "/etc/open5gs/freeDiameter/smf.conf";
       
       pfcp = {
         server = [{
@@ -328,7 +334,7 @@ in {
       
       s1ap = {
         server = [{
-          address = cfg.addresses.mme or defaultAddresses.mme;
+          address = cfg.s1ap.address;  # External IP for eNB connection
         }];
       };
       
@@ -436,7 +442,7 @@ in {
       
       gtpu = {
         server = [{
-          address = cfg.addresses.sgwu or defaultAddresses.sgwu;
+          address = cfg.sgwuGtpu.address;  # External IP for eNB user plane
         }];
       };
     };
@@ -451,5 +457,131 @@ in {
       freeDiameter = "/etc/open5gs/freeDiameter/pcrf.conf";
     };
   };
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # FreeDiameter Configuration Files (for LTE Diameter protocol)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # 
+  # FreeDiameter is used for:
+  #   - S6a interface: MME <-> HSS (authentication, subscriber data)
+  #   - Gx interface:  SMF/PGW-c <-> PCRF (policy, QoS rules)
+  #
+  # Reference: https://lantian.pub/en/article/modify-computer/legal-lte-network-at-home-with-open5gs.lantian/
+
+  # MME FreeDiameter configuration (connects to HSS via S6a)
+  freeDiameterMme = ''
+    # FreeDiameter configuration for MME
+    Identity = "mme.localdomain";
+    Realm = "localdomain";
+
+    # Listen on MME address
+    ListenOn = "${cfg.addresses.mme or defaultAddresses.mme}";
+
+    # TLS credentials from Open5GS package
+    TLS_Cred = "${pkgPath}/etc/open5gs/tls/mme.crt", "${pkgPath}/etc/open5gs/tls/mme.key";
+    TLS_CA = "${pkgPath}/etc/open5gs/tls/ca.crt";
+
+    # Disable relaying - we only handle our own messages
+    NoRelay;
+
+    # Load FreeDiameter extensions
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dbg_msg_dumps.fdx" : "0x8888";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_rfc5777.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_mip6i.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nasreq.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nas_mipv6.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
+
+    # Connect to HSS (S6a interface) - No_TLS for local testing
+    ConnectPeer = "hss.localdomain" { ConnectTo = "${cfg.addresses.hss or defaultAddresses.hss}"; No_TLS; };
+  '';
+
+  # HSS FreeDiameter configuration (accepts connections from MME)
+  freeDiameterHss = ''
+    # FreeDiameter configuration for HSS
+    Identity = "hss.localdomain";
+    Realm = "localdomain";
+
+    # Listen on HSS address
+    ListenOn = "${cfg.addresses.hss or defaultAddresses.hss}";
+
+    # TLS credentials from Open5GS package
+    TLS_Cred = "${pkgPath}/etc/open5gs/tls/hss.crt", "${pkgPath}/etc/open5gs/tls/hss.key";
+    TLS_CA = "${pkgPath}/etc/open5gs/tls/ca.crt";
+
+    # Disable relaying
+    NoRelay;
+
+    # Load FreeDiameter extensions
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dbg_msg_dumps.fdx" : "0x8888";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_rfc5777.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_mip6i.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nasreq.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nas_mipv6.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
+
+    # HSS accepts connection from MME - No_TLS for local testing
+    ConnectPeer = "mme.localdomain" { ConnectTo = "${cfg.addresses.mme or defaultAddresses.mme}"; No_TLS; };
+  '';
+
+  # SMF FreeDiameter configuration (connects to PCRF via Gx, used in LTE mode as PGW-c)
+  freeDiameterSmf = ''
+    # FreeDiameter configuration for SMF (PGW-c in LTE)
+    Identity = "smf.localdomain";
+    Realm = "localdomain";
+
+    # Listen on SMF address
+    ListenOn = "${cfg.addresses.smf or defaultAddresses.smf}";
+
+    # TLS credentials from Open5GS package
+    TLS_Cred = "${pkgPath}/etc/open5gs/tls/smf.crt", "${pkgPath}/etc/open5gs/tls/smf.key";
+    TLS_CA = "${pkgPath}/etc/open5gs/tls/ca.crt";
+
+    # Disable relaying
+    NoRelay;
+
+    # Load FreeDiameter extensions
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dbg_msg_dumps.fdx" : "0x8888";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_rfc5777.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_mip6i.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nasreq.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nas_mipv6.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
+
+    # Connect to PCRF (Gx interface) - No_TLS for local testing
+    ConnectPeer = "pcrf.localdomain" { ConnectTo = "${cfg.addresses.pcrf or defaultAddresses.pcrf}"; No_TLS; };
+  '';
+
+  # PCRF FreeDiameter configuration (accepts connections from SMF/PGW-c)
+  freeDiameterPcrf = ''
+    # FreeDiameter configuration for PCRF
+    Identity = "pcrf.localdomain";
+    Realm = "localdomain";
+
+    # Listen on PCRF address
+    ListenOn = "${cfg.addresses.pcrf or defaultAddresses.pcrf}";
+
+    # TLS credentials from Open5GS package
+    TLS_Cred = "${pkgPath}/etc/open5gs/tls/pcrf.crt", "${pkgPath}/etc/open5gs/tls/pcrf.key";
+    TLS_CA = "${pkgPath}/etc/open5gs/tls/ca.crt";
+
+    # Disable relaying
+    NoRelay;
+
+    # Load FreeDiameter extensions
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dbg_msg_dumps.fdx" : "0x8888";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_rfc5777.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_mip6i.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nasreq.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_nas_mipv6.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca.fdx";
+    LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
+
+    # PCRF accepts connection from SMF - No_TLS for local testing
+    ConnectPeer = "smf.localdomain" { ConnectTo = "${cfg.addresses.smf or defaultAddresses.smf}"; No_TLS; };
+  '';
 }
 

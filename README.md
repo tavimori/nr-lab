@@ -186,6 +186,110 @@ This project provides NixOS modules for declarative Open5GS 5G/LTE core network 
 | `tun.enable` | `true` | 创建 ogstun 接口 / Create ogstun interface |
 | `nat.enable` | `true` | 启用 NAT / Enable NAT for UE traffic |
 
+#### 外部接口配置 / External Interface Options
+
+连接外部基站（小基站、RRU）时，需要将相关接口绑定到外部 IP。
+
+When connecting external base stations (small cells, RRU), you need to bind interfaces to external IPs.
+
+| 选项 / Option | 默认值 / Default | 说明 / Description |
+|---------------|------------------|-------------------|
+| `ngap.address` | `"127.0.0.5"` | 5G NGAP (N2) 接口，gNB 连接此地址 |
+| `gtpu.address` | `"127.0.0.7"` | 5G GTP-U (N3) 接口，用户面数据 |
+| `s1ap.address` | `"127.0.0.2"` | 4G S1AP 接口，eNB 连接此地址 |
+| `sgwuGtpu.address` | `"127.0.0.6"` | 4G SGWU GTP-U 接口，用户面数据 |
+
+### 连接外部基站示例 / External Base Station Examples
+
+#### 5G SA 模式 - 连接外部 gNB
+
+```nix
+# 假设服务器 IP 为 192.168.1.100
+services.open5gs = {
+  enable = true;
+  mode = "5g-sa";
+  
+  plmn = { mcc = "001"; mnc = "01"; };
+  tac = 1;
+  networkName = "My 5G Lab";
+  
+  # 外部 gNB 连接的 NGAP (N2) 接口 - AMF
+  ngap.address = "192.168.1.100";
+  
+  # 外部 gNB 连接的 GTP-U (N3) 接口 - UPF
+  gtpu.address = "192.168.1.100";
+  
+  userPlane = {
+    subnet = "10.45.0.0/16";
+    gateway = "10.45.0.1";
+    dnn = "internet";
+  };
+};
+```
+
+gNB 配置（srsRAN 或其他）中需要设置：
+- AMF 地址: `192.168.1.100:38412` (SCTP)
+- 确保 PLMN 和 TAC 匹配
+
+#### 4G LTE 模式 - 连接外部 eNB / 小基站
+
+```nix
+# 假设服务器 IP 为 192.168.1.100
+services.open5gs = {
+  enable = true;
+  mode = "lte";
+  
+  plmn = { mcc = "001"; mnc = "01"; };
+  tac = 1;
+  networkName = "My LTE Lab";
+  
+  # 外部 eNB 连接的 S1AP 接口 - MME
+  s1ap.address = "192.168.1.100";
+  
+  # 外部 eNB 连接的 GTP-U 接口 - SGWU
+  sgwuGtpu.address = "192.168.1.100";
+  
+  userPlane = {
+    subnet = "10.45.0.0/16";
+    gateway = "10.45.0.1";
+    dnn = "internet";  # APN for LTE
+  };
+};
+```
+
+eNB / 小基站配置中需要设置：
+- MME 地址: `192.168.1.100:36412` (SCTP)
+- 确保 PLMN 和 TAC 匹配
+
+#### 同时支持 4G 和 5G (NSA/SA)
+
+```nix
+services.open5gs = {
+  enable = true;
+  mode = "both";  # 启用 4G EPC + 5G Core
+  
+  plmn = { mcc = "001"; mnc = "01"; };
+  tac = 1;
+  networkName = "My Dual-Mode Lab";
+  
+  # 5G 接口
+  ngap.address = "192.168.1.100";
+  gtpu.address = "192.168.1.100";
+  
+  # 4G 接口
+  s1ap.address = "192.168.1.100";
+  sgwuGtpu.address = "192.168.1.100";
+  
+  userPlane = {
+    subnet = "10.45.0.0/16";
+    gateway = "10.45.0.1";
+    dnn = "internet";
+  };
+};
+```
+
+> **参考 / Reference**: [Open5GS Quickstart Guide](https://open5gs.org/open5gs/docs/guide/01-quickstart/)
+
 ### 服务管理 / Service Management
 
 ```bash

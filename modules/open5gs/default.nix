@@ -181,11 +181,15 @@ in {
       description = "IP addresses for each network function.";
     };
     
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 5G SA External Interfaces (for connecting gNB)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
     ngap = {
       address = lib.mkOption {
         type = lib.types.str;
         default = "127.0.0.5";
-        description = "NGAP (N2) interface address for gNB connection.";
+        description = "NGAP (N2) interface address for gNB connection. Set to external IP for real gNB.";
       };
       
       port = lib.mkOption {
@@ -199,7 +203,27 @@ in {
       address = lib.mkOption {
         type = lib.types.str;
         default = "127.0.0.7";
-        description = "GTP-U (N3) interface address for user plane.";
+        description = "GTP-U (N3) interface address for user plane. Set to external IP for real gNB.";
+      };
+    };
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 4G LTE External Interfaces (for connecting eNB)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    s1ap = {
+      address = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.2";
+        description = "S1AP interface address for eNB connection (4G). Set to external IP for real eNB.";
+      };
+    };
+    
+    sgwuGtpu = {
+      address = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.6";
+        description = "SGWU GTP-U interface address for 4G user plane. Set to external IP for real eNB.";
       };
     };
     
@@ -313,6 +337,10 @@ in {
         "open5gs/pcf.yaml".source = yamlFormat.generate "pcf.yaml" configs.pcf;
         "open5gs/nssf.yaml".source = yamlFormat.generate "nssf.yaml" configs.nssf;
         "open5gs/bsf.yaml".source = yamlFormat.generate "bsf.yaml" configs.bsf;
+        
+        # SMF uses FreeDiameter for Gx interface (optional in 5G-SA, required for LTE interop)
+        "open5gs/freeDiameter/smf.conf".text = configs.freeDiameterSmf;
+        "open5gs/freeDiameter/pcrf.conf".text = configs.freeDiameterPcrf;
       })
       
       # LTE specific components
@@ -322,6 +350,13 @@ in {
         "open5gs/sgwc.yaml".source = yamlFormat.generate "sgwc.yaml" configs.sgwc;
         "open5gs/sgwu.yaml".source = yamlFormat.generate "sgwu.yaml" configs.sgwu;
         "open5gs/pcrf.yaml".source = yamlFormat.generate "pcrf.yaml" configs.pcrf;
+        
+        # FreeDiameter configuration files for Diameter protocol (S6a, Gx interfaces)
+        # Reference: https://lantian.pub/en/article/modify-computer/legal-lte-network-at-home-with-open5gs.lantian/
+        "open5gs/freeDiameter/mme.conf".text = configs.freeDiameterMme;
+        "open5gs/freeDiameter/hss.conf".text = configs.freeDiameterHss;
+        "open5gs/freeDiameter/smf.conf".text = configs.freeDiameterSmf;
+        "open5gs/freeDiameter/pcrf.conf".text = configs.freeDiameterPcrf;
       })
     ];
     
