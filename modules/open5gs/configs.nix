@@ -248,18 +248,21 @@ in {
   };
   
   # UDM - Unified Data Management
+  # SUPI concealment uses Home Network keys for privacy protection
   udm = {
     logger = mkLogger "udm";
     
     udm = {
       sbi = mkSbiWithScp (cfg.addresses.udm or defaultAddresses.udm) 7777;
+    } // lib.optionalAttrs (cfg.hnet.enable or true) {
+      hnet = map (k: {
+        id = k.id;
+        scheme = k.scheme;
+        key = "/etc/open5gs/hnet/curve25519-${toString k.id}.key";
+      }) (cfg.hnet.keys or [{ id = 1; scheme = 1; }]);
     };
-    
-    hnet = [{
-      id = 1;
-      scheme = 1;
-      key = "465b5ce8b199b49faa5f0a2ee238a6bc";  # Home network key (test value)
-    }];
+    # Home Network keys for SUPI concealment
+    # Reference: https://open5gs.org/open5gs/docs/guide/01-quickstart/#supi-concealment
   };
   
   # UDR - Unified Data Repository

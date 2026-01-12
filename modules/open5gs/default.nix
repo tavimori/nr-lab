@@ -266,6 +266,49 @@ in {
     };
     
     # ═══════════════════════════════════════════════════════════════════════════
+    # SUPI Concealment (Home Network Key for 5G)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    hnet = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether to enable SUPI concealment with Home Network keys.";
+      };
+      
+      keys = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            id = lib.mkOption {
+              type = lib.types.int;
+              description = "Home Network Public Key Identifier (1-255).";
+            };
+            scheme = lib.mkOption {
+              type = lib.types.enum [ 1 2 ];
+              default = 1;
+              description = ''
+                Protection scheme:
+                - 1: Profile A (ECIES with X25519)
+                - 2: Profile B (ECIES with secp256r1)
+              '';
+            };
+            keyFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              description = "Path to the private key file. If null, a key will be auto-generated.";
+            };
+          };
+        });
+        default = [{
+          id = 1;
+          scheme = 1;
+          keyFile = null;  # Auto-generate
+        }];
+        description = "List of Home Network keys for SUPI concealment.";
+      };
+    };
+    
+    # ═══════════════════════════════════════════════════════════════════════════
     # Custom Configuration Files (Advanced)
     # ═══════════════════════════════════════════════════════════════════════════
     
@@ -323,9 +366,28 @@ in {
     environment.etc = let
       # Import configuration generators
       configs = import ./configs.nix { inherit lib cfg defaultAddresses; };
+      
+      # Generate HNET key entries
+      # Note: mode 0644 allows the DynamicUser services to read the key
+      # For production, consider using a dedicated user/group with stricter permissions
+      hnetKeyEntries = lib.listToAttrs (map (key: {
+        name = "open5gs/hnet/curve25519-${toString key.id}.key";
+        value = {
+          # If user provides a keyFile, use it; otherwise generate one
+          source = if key.keyFile != null 
+            then key.keyFile
+            else pkgs.runCommand "hnet-key-${toString key.id}" {
+              nativeBuildInputs = [ pkgs.openssl ];
+            } ''
+              # Generate X25519 private key for SUPI concealment
+              openssl genpkey -algorithm X25519 -out $out
+            '';
+          mode = "0644";  # Readable by DynamicUser services
+        };
+      }) (lib.filter (k: k.scheme == 1) cfg.hnet.keys));
     in lib.mkMerge [
       # Always needed: NRF (5G) or common components
-      (lib.mkIf (cfg.mode == "5g-sa" || cfg.mode == "both") {
+      (lib.mkIf (cfg.mode == "5g-sa" || cfg.mode == "both") ({
         "open5gs/nrf.yaml".source = yamlFormat.generate "nrf.yaml" configs.nrf;
         "open5gs/scp.yaml".source = yamlFormat.generate "scp.yaml" configs.scp;
         "open5gs/amf.yaml".source = yamlFormat.generate "amf.yaml" configs.amf;
@@ -341,7 +403,7 @@ in {
         # SMF uses FreeDiameter for Gx interface (optional in 5G-SA, required for LTE interop)
         "open5gs/freeDiameter/smf.conf".text = configs.freeDiameterSmf;
         "open5gs/freeDiameter/pcrf.conf".text = configs.freeDiameterPcrf;
-      })
+      } // lib.optionalAttrs cfg.hnet.enable hnetKeyEntries))
       
       # LTE specific components
       (lib.mkIf (cfg.mode == "lte" || cfg.mode == "both") {
