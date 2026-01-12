@@ -130,7 +130,7 @@ in {
       
       security = {
         integrity_order = [ "NIA2" "NIA1" "NIA0" ];
-        ciphering_order = [ "NEA0" "NEA1" "NEA2" ];
+        ciphering_order = [ "NEA2" "NEA1" "NEA0" ];
       };
       
       network_name = {
