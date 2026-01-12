@@ -40,6 +40,7 @@ export default defineConfig({
                 { text: '安装部署', link: '/open5gs/installation' },
                 { text: '配置详解', link: '/open5gs/configuration' },
                 { text: '用户管理', link: '/open5gs/subscriber' },
+                { text: 'VoLTE/VoNR', link: '/open5gs/volte' },
               ]
             }
           ],
@@ -106,6 +107,7 @@ export default defineConfig({
                 { text: 'Installation', link: '/en/open5gs/installation' },
                 { text: 'Configuration', link: '/en/open5gs/configuration' },
                 { text: 'Subscriber Management', link: '/en/open5gs/subscriber' },
+                { text: 'VoLTE/VoNR', link: '/en/open5gs/volte' },
               ]
             }
           ],
