@@ -16,12 +16,20 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '首页', link: '/' },
+          { text: '5G 基础', link: '/guide/5g-architecture' },
           { text: '快速开始', link: '/guide/getting-started' },
           { text: 'Open5GS', link: '/open5gs/' },
           { text: 'srsRAN', link: '/srsran/' },
         ],
         sidebar: {
           '/guide/': [
+            {
+              text: '5G 基础知识',
+              items: [
+                { text: '5G 系统架构', link: '/guide/5g-architecture' },
+                { text: '⚠️ 法律法规', link: '/guide/rf-regulations' },
+              ]
+            },
             {
               text: '入门指南',
               items: [
@@ -83,12 +91,20 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Home', link: '/en/' },
+          { text: '5G Basics', link: '/en/guide/5g-architecture' },
           { text: 'Quick Start', link: '/en/guide/getting-started' },
           { text: 'Open5GS', link: '/en/open5gs/' },
           { text: 'srsRAN', link: '/en/srsran/' },
         ],
         sidebar: {
           '/en/guide/': [
+            {
+              text: '5G Fundamentals',
+              items: [
+                { text: '5G System Architecture', link: '/en/guide/5g-architecture' },
+                { text: '⚠️ RF Regulations', link: '/en/guide/rf-regulations' },
+              ]
+            },
             {
               text: 'Getting Started',
               items: [

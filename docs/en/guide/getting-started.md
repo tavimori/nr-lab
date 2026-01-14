@@ -1,5 +1,13 @@
 # Getting Started
 
+::: danger ⚠️ Important Legal Warning - Read First!
+Before using SDR equipment for radio transmission, you must understand the relevant laws and regulations. According to China's Public Security Administration Punishments Law (effective January 1, 2026) Article 32:
+
+**Setting up base stations or using radio frequencies without approval may result in 5-15 days administrative detention!**
+
+Please use an RF shielded box or cable connection for experiments. For details, read [RF Regulations & Compliance](/en/guide/rf-regulations).
+:::
+
 This guide will help you quickly set up a complete 5G NR private network lab environment.
 
 ## System Architecture
@@ -109,10 +117,13 @@ After successful startup, you should see gNB connection info in AMF logs:
 - [Open5GS Configuration](/en/open5gs/configuration) - Core network parameters
 - [gNB Configuration](/en/srsran/gnb-config) - Base station configuration
 
-::: warning Warning
-Before conducting over-the-air experiments, ensure:
-1. You have legal spectrum authorization
-2. Use shielded box or low power settings
-3. No interference to public wireless networks
+::: danger ⚠️ RF Compliance Reminder
+Before conducting over-the-air experiments, you **must** ensure:
+1. ✅ Have read [RF Regulations & Compliance](/en/guide/rf-regulations)
+2. ✅ Using **RF shielded box** or **cable connection + attenuator**
+3. ✅ Transmission power set to minimum usable value
+4. ✅ No interference to public wireless networks
+
+**Consequences of violations**: Under 2026 regulations, illegal base stations may result in 5-15 days detention!
 :::
 

@@ -1,5 +1,11 @@
 # srsRAN Base Station Overview
 
+::: danger ⚠️ RF Compliance Warning
+Before using SDR for radio transmission, please read [RF Regulations & Compliance](/en/guide/rf-regulations).
+
+Under China's Public Security Administration Punishments Law (effective January 1, 2026), **setting up base stations without approval may result in 5-15 days detention**! Please use an RF shielded box or cable connection for experiments.
+:::
+
 srsRAN Project is an open-source 5G RAN implementation providing 3GPP compliant gNB and UE.
 
 ## Project Architecture

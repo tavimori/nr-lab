@@ -21,6 +21,14 @@ hero:
 
 
 features:
+  - icon: 📚
+    title: 5G 基础知识
+    details: 了解 5G 网络架构、RAN/核心网组成、频段分配、基站类型等基础概念
+    link: /guide/5g-architecture
+  - icon: ⚖️
+    title: 法律法规
+    details: 无线电管理法规、《治安管理处罚法》2026年新规、合法实验方法
+    link: /guide/rf-regulations
   - icon: 🌐
     title: Open5GS 核心网
     details: 完整的 5G SA 核心网部署，包含 AMF、SMF、UPF 等网元配置
@@ -58,6 +66,8 @@ features:
 
 ### 快速链接
 
+- 📚 [5G 系统架构](/guide/5g-architecture) - 先了解 5G 网络的基本概念
+- ⚖️ [法律法规](/guide/rf-regulations) - **必读！** 了解无线电合规要求
 - 📖 [环境准备](/guide/prerequisites) - 系统要求与软件安装
 - 🔧 [Open5GS 安装](/open5gs/installation) - 核心网部署步骤
 - 📡 [srsRAN 配置](/srsran/gnb-config) - gNB 参数配置
