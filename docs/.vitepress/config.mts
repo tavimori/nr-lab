@@ -27,6 +27,7 @@ export default defineConfig({
               text: '5G 基础知识',
               items: [
                 { text: '5G 系统架构', link: '/guide/5g-architecture' },
+                { text: '中国运营商频段', link: '/guide/china-spectrum' },
                 { text: '⚠️ 法律法规', link: '/guide/rf-regulations' },
               ]
             },
@@ -102,6 +103,7 @@ export default defineConfig({
               text: '5G Fundamentals',
               items: [
                 { text: '5G System Architecture', link: '/en/guide/5g-architecture' },
+                { text: 'China ISP Spectrum', link: '/en/guide/china-spectrum' },
                 { text: '⚠️ RF Regulations', link: '/en/guide/rf-regulations' },
               ]
             },
