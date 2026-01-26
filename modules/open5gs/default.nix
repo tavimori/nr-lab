@@ -325,6 +325,31 @@ in {
           If set, enables SMS over IMS in HSS.
         '';
       };
+      
+      # IMS User Plane Configuration
+      dnn = lib.mkOption {
+        type = lib.types.str;
+        default = "ims";
+        description = "Data Network Name for IMS signaling traffic.";
+      };
+      
+      subnet = lib.mkOption {
+        type = lib.types.str;
+        default = "10.46.0.0/16";
+        description = "UE IP address pool subnet for IMS PDU sessions.";
+      };
+      
+      gateway = lib.mkOption {
+        type = lib.types.str;
+        default = "10.46.0.1";
+        description = "Gateway IP for IMS traffic.";
+      };
+      
+      tunDevice = lib.mkOption {
+        type = lib.types.str;
+        default = "ogstun2";
+        description = "Name of the TUN device for IMS traffic.";
+      };
     };
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -416,6 +441,7 @@ in {
           chain postrouting {
             type nat hook postrouting priority srcnat; policy accept;
             ip saddr ${cfg.userPlane.subnet} masquerade
+            ${lib.optionalString cfg.ims.enable "ip saddr ${cfg.ims.subnet} masquerade"}
           }
         '';
       };
@@ -501,17 +527,29 @@ in {
             RemainAfterExit = true;
           };
           
-          # Create and configure TUN device
+          # Create and configure TUN device(s)
           script = ''
-            # Create TUN device if it doesn't exist
+            # Create primary TUN device if it doesn't exist
             if ! ip link show ${cfg.tun.device} &>/dev/null; then
               ip tuntap add name ${cfg.tun.device} mode tun
             fi
             
-            # Configure IP address
+            # Configure IP address for primary TUN
             ip addr flush dev ${cfg.tun.device} 2>/dev/null || true
             ip addr add ${cfg.userPlane.gateway}/16 dev ${cfg.tun.device}
             ip link set ${cfg.tun.device} up
+            
+            ${lib.optionalString cfg.ims.enable ''
+            # Create IMS TUN device if it doesn't exist
+            if ! ip link show ${cfg.ims.tunDevice} &>/dev/null; then
+              ip tuntap add name ${cfg.ims.tunDevice} mode tun
+            fi
+            
+            # Configure IP address for IMS TUN
+            ip addr flush dev ${cfg.ims.tunDevice} 2>/dev/null || true
+            ip addr add ${cfg.ims.gateway}/16 dev ${cfg.ims.tunDevice}
+            ip link set ${cfg.ims.tunDevice} up
+            ''}
             
             # Enable IP forwarding
             sysctl -w net.ipv4.ip_forward=1
@@ -520,6 +558,9 @@ in {
           # Cleanup on stop
           preStop = ''
             ip link del ${cfg.tun.device} 2>/dev/null || true
+            ${lib.optionalString cfg.ims.enable ''
+            ip link del ${cfg.ims.tunDevice} 2>/dev/null || true
+            ''}
           '';
           
           path = [ pkgs.iproute2 pkgs.procps ];

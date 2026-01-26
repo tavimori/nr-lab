@@ -188,9 +188,13 @@ in {
         }];
       };
       
+      # Internet DNN session, plus IMS DNN session when IMS is enabled
       session = [{
         subnet = cfg.userPlane.subnet;
         gateway = cfg.userPlane.gateway;
+      }] ++ lib.optionals cfg.ims.enable [{
+        subnet = cfg.ims.subnet;
+        gateway = cfg.ims.gateway;
       }];
       
       dns = [
@@ -222,11 +226,17 @@ in {
         }];
       };
       
+      # Internet DNN session, plus IMS DNN session when IMS is enabled
       session = [{
         subnet = cfg.userPlane.subnet;
         gateway = cfg.userPlane.gateway;
         dnn = cfg.userPlane.dnn;
         dev = cfg.tun.device;
+      }] ++ lib.optionals cfg.ims.enable [{
+        subnet = cfg.ims.subnet;
+        gateway = cfg.ims.gateway;
+        dnn = cfg.ims.dnn;
+        dev = cfg.ims.tunDevice;
       }];
       
       metrics = {
