@@ -475,12 +475,11 @@ in {
   # Reference: https://lantian.pub/en/article/modify-computer/legal-lte-network-at-home-with-open5gs.lantian/
 
   # MME FreeDiameter configuration (connects to HSS via S6a)
-  freeDiameterMme = let
-    epcDomain = "epc.mnc${cfg.plmn.mnc}.mcc${cfg.plmn.mcc}.3gppnetwork.org";
-  in ''
+  # Uses localdomain to match the default Open5GS TLS certificates
+  freeDiameterMme = ''
     # FreeDiameter configuration for MME
-    Identity = "mme.${epcDomain}";
-    Realm = "${epcDomain}";
+    Identity = "mme.localdomain";
+    Realm = "localdomain";
 
     # Listen on MME address
     ListenOn = "${cfg.addresses.mme or defaultAddresses.mme}";
@@ -502,28 +501,26 @@ in {
     LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
 
     # Connect to HSS (S6a interface) - No_TLS for local testing
-    ConnectPeer = "hss.${epcDomain}" { ConnectTo = "${cfg.addresses.hss or defaultAddresses.hss}"; No_TLS; };
+    ConnectPeer = "hss.localdomain" { ConnectTo = "${cfg.addresses.hss or defaultAddresses.hss}"; No_TLS; };
   '';
 
   # HSS FreeDiameter configuration (accepts connections from MME, and optionally I-CSCF/S-CSCF for IMS)
   # When IMS is enabled, HSS provides both S6a (MME) and Cx (I-CSCF/S-CSCF) interfaces
+  # Uses localdomain to match the default Open5GS TLS certificates
   freeDiameterHss = let
-    # EPC domain follows 3GPP format: epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org
-    epcDomain = "epc.mnc${cfg.plmn.mnc}.mcc${cfg.plmn.mcc}.3gppnetwork.org";
-    imsDomain = cfg.ims.domain or "ims.mnc${cfg.plmn.mnc}.mcc${cfg.plmn.mcc}.3gppnetwork.org";
-    
     # Cx interface peers (I-CSCF and S-CSCF) - only when IMS is enabled
+    # IMS components should also use localdomain for consistency
     cxPeers = lib.optionalString cfg.ims.enable ''
       # Cx interface for IMS - I-CSCF (Interrogating-CSCF)
-      ConnectPeer = "icscf.${imsDomain}" { ConnectTo = "${cfg.ims.icscf.address}"; Port = ${toString cfg.ims.icscf.port}; No_TLS; };
+      ConnectPeer = "icscf.localdomain" { ConnectTo = "${cfg.ims.icscf.address}"; Port = ${toString cfg.ims.icscf.port}; No_TLS; };
       # Cx interface for IMS - S-CSCF (Serving-CSCF)
-      ConnectPeer = "scscf.${imsDomain}" { ConnectTo = "${cfg.ims.scscf.address}"; Port = ${toString cfg.ims.scscf.port}; No_TLS; };
+      ConnectPeer = "scscf.localdomain" { ConnectTo = "${cfg.ims.scscf.address}"; Port = ${toString cfg.ims.scscf.port}; No_TLS; };
     '';
   in ''
     # FreeDiameter configuration for HSS
     # Supports S6a interface (MME) and optionally Cx interface (I-CSCF/S-CSCF for IMS)
-    Identity = "hss.${epcDomain}";
-    Realm = "${epcDomain}";
+    Identity = "hss.localdomain";
+    Realm = "localdomain";
 
     # Listen on HSS address
     ListenOn = "${cfg.addresses.hss or defaultAddresses.hss}";
@@ -545,7 +542,7 @@ in {
     LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
 
     # S6a interface - HSS accepts connection from MME
-    ConnectPeer = "mme.${epcDomain}" { ConnectTo = "${cfg.addresses.mme or defaultAddresses.mme}"; No_TLS; };
+    ConnectPeer = "mme.localdomain" { ConnectTo = "${cfg.addresses.mme or defaultAddresses.mme}"; No_TLS; };
     ${cxPeers}
   '';
 
