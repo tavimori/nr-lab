@@ -266,6 +266,68 @@ in {
     };
     
     # ═══════════════════════════════════════════════════════════════════════════
+    # IMS/VoLTE Configuration (HSS Cx Interface)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    ims = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Enable IMS support for VoLTE/VoNR.
+          This configures the HSS to expose the Cx interface for Kamailio I-CSCF/S-CSCF.
+        '';
+      };
+      
+      domain = lib.mkOption {
+        type = lib.types.str;
+        default = "ims.mnc001.mcc001.3gppnetwork.org";
+        description = ''
+          IMS domain name. Should follow 3GPP format:
+          ims.mnc<MNC>.mcc<MCC>.3gppnetwork.org
+        '';
+      };
+      
+      icscf = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "127.0.0.30";
+          description = "I-CSCF (Kamailio) IP address for Cx interface.";
+        };
+        
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 3869;
+          description = "I-CSCF Diameter port.";
+        };
+      };
+      
+      scscf = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "127.0.0.31";
+          description = "S-CSCF (Kamailio) IP address for Cx interface.";
+        };
+        
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 3870;
+          description = "S-CSCF Diameter port.";
+        };
+      };
+      
+      smsc = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "sip:smsc.ims.mnc001.mcc001.3gppnetwork.org:7090";
+        description = ''
+          SMS over IMS (SMSoIP) SMSC SIP URI.
+          If set, enables SMS over IMS in HSS.
+        '';
+      };
+    };
+    
+    # ═══════════════════════════════════════════════════════════════════════════
     # SUPI Concealment (Home Network Key for 5G)
     # ═══════════════════════════════════════════════════════════════════════════
     
