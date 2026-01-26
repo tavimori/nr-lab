@@ -448,7 +448,7 @@ in {
         };
       }) (lib.filter (k: k.scheme == 1) cfg.hnet.keys));
     in lib.mkMerge [
-      # Always needed: NRF (5G) or common components
+      # 5G SA specific components
       (lib.mkIf (cfg.mode == "5g-sa" || cfg.mode == "both") ({
         "open5gs/nrf.yaml".source = yamlFormat.generate "nrf.yaml" configs.nrf;
         "open5gs/scp.yaml".source = yamlFormat.generate "scp.yaml" configs.scp;
@@ -461,10 +461,6 @@ in {
         "open5gs/pcf.yaml".source = yamlFormat.generate "pcf.yaml" configs.pcf;
         "open5gs/nssf.yaml".source = yamlFormat.generate "nssf.yaml" configs.nssf;
         "open5gs/bsf.yaml".source = yamlFormat.generate "bsf.yaml" configs.bsf;
-        
-        # SMF uses FreeDiameter for Gx interface (optional in 5G-SA, required for LTE interop)
-        "open5gs/freeDiameter/smf.conf".text = configs.freeDiameterSmf;
-        "open5gs/freeDiameter/pcrf.conf".text = configs.freeDiameterPcrf;
       } // lib.optionalAttrs cfg.hnet.enable hnetKeyEntries))
       
       # LTE specific components
@@ -475,13 +471,17 @@ in {
         "open5gs/sgwu.yaml".source = yamlFormat.generate "sgwu.yaml" configs.sgwu;
         "open5gs/pcrf.yaml".source = yamlFormat.generate "pcrf.yaml" configs.pcrf;
         
-        # FreeDiameter configuration files for Diameter protocol (S6a, Gx interfaces)
-        # Reference: https://lantian.pub/en/article/modify-computer/legal-lte-network-at-home-with-open5gs.lantian/
+        # LTE-specific FreeDiameter configuration files (S6a interface)
         "open5gs/freeDiameter/mme.conf".text = configs.freeDiameterMme;
         "open5gs/freeDiameter/hss.conf".text = configs.freeDiameterHss;
+      })
+      
+      # FreeDiameter configs for SMF/PCRF (Gx interface) - needed by both 5G-SA and LTE
+      # These are shared and must only be defined once to avoid duplication
+      {
         "open5gs/freeDiameter/smf.conf".text = configs.freeDiameterSmf;
         "open5gs/freeDiameter/pcrf.conf".text = configs.freeDiameterPcrf;
-      })
+      }
     ];
     
     # ─────────────────────────────────────────────────────────────────────────────
