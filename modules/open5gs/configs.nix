@@ -205,6 +205,12 @@ in {
       mtu = 1400;
       
       ctf.enabled = "auto";
+    } // lib.optionalAttrs cfg.ims.enable {
+      # P-CSCF addresses for PCO (Protocol Configuration Options)
+      # These are advertised to UEs during PDU session establishment for IMS discovery
+      p-cscf = if cfg.ims.pcscf.pco != [] 
+               then cfg.ims.pcscf.pco 
+               else [ cfg.ims.pcscf.address ];
     };
   };
   
@@ -585,9 +591,16 @@ in {
     ConnectPeer = "pcrf.localdomain" { ConnectTo = "${cfg.addresses.pcrf or defaultAddresses.pcrf}"; No_TLS; };
   '';
 
-  # PCRF FreeDiameter configuration (accepts connections from SMF/PGW-c)
-  freeDiameterPcrf = ''
+  # PCRF FreeDiameter configuration (accepts connections from SMF/PGW-c, and P-CSCF for IMS)
+  freeDiameterPcrf = let
+    # Rx interface peer (P-CSCF) - only when IMS is enabled
+    rxPeer = lib.optionalString cfg.ims.enable ''
+      # Rx interface for IMS - P-CSCF (Proxy-CSCF)
+      ConnectPeer = "pcscf.localdomain" { ConnectTo = "${cfg.ims.pcscf.address}"; Port = ${toString cfg.ims.pcscf.port}; No_TLS; };
+    '';
+  in ''
     # FreeDiameter configuration for PCRF
+    # Supports Gx interface (SMF/PGW-c) and optionally Rx interface (P-CSCF for IMS)
     Identity = "pcrf.localdomain";
     Realm = "localdomain";
 
@@ -610,8 +623,9 @@ in {
     LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca.fdx";
     LoadExtension = "${pkgPath}/lib/freeDiameter/dict_dcca_3gpp.fdx";
 
-    # PCRF accepts connection from SMF - No_TLS for local testing
+    # Gx interface - PCRF accepts connection from SMF - No_TLS for local testing
     ConnectPeer = "smf.localdomain" { ConnectTo = "${cfg.addresses.smf or defaultAddresses.smf}"; No_TLS; };
+    ${rxPeer}
   '';
 }
 

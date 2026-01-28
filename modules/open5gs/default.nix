@@ -316,6 +316,32 @@ in {
         };
       };
       
+      pcscf = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "127.0.0.32";
+          description = "P-CSCF (Kamailio) IP address for Rx interface to PCRF.";
+        };
+        
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 3871;
+          description = "P-CSCF Diameter port for Rx interface.";
+        };
+        
+        pco = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          example = [ "192.168.0.100" "::1" ];
+          description = ''
+            P-CSCF addresses to advertise to UEs via PCO (Protocol Configuration Options).
+            These addresses are sent to UEs during PDU session establishment so they can
+            discover the P-CSCF for IMS registration. Can include both IPv4 and IPv6 addresses.
+            If empty, defaults to using ims.pcscf.address.
+          '';
+        };
+      };
+      
       smsc = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
