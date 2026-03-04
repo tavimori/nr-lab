@@ -9,12 +9,16 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    # Stable nixpkgs for open5gs (mongosh build issue in unstable)
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
+
+    # Open5GS built from source (local fork with Nix flake)
+    open5gs = {
+      url = "git+file:///home/licheng/Projects/open5gs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-stable, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, open5gs }:
     # ═══════════════════════════════════════════════════════════════════════════
     # NixOS Modules (system-independent)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -33,14 +37,10 @@
     # ═══════════════════════════════════════════════════════════════════════════
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # Stable pkgs for open5gs (mongosh build issue in unstable)
-        pkgs-stable = import nixpkgs-stable { inherit system; };
-        
         # Overlay for custom packages
         overlay = final: prev: {
           srsran-project = final.callPackage ./packages/srsran-project.nix { };
-          # Use open5gs from stable nixpkgs
-          open5gs = pkgs-stable.open5gs;
+          open5gs = open5gs.packages.${system}.open5gs;
         };
         
         pkgs = import nixpkgs {
@@ -79,12 +79,12 @@
         ];
         
         # 5G packages (gNB + 5GC)
-        fiveGPackages = with pkgs; [
+        fiveGPackages = [
           # 5G Core Network
-          open5gs
+          pkgs.open5gs
           
           # 5G gNB (custom build from srsRAN Project)
-          srsran-project
+          pkgs.srsran-project
         ];
       in
       {

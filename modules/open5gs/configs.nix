@@ -417,6 +417,8 @@ in {
     
     hss = {
       freeDiameter = "/etc/open5gs/freeDiameter/hss.conf";
+    } // lib.optionalAttrs cfg.ims.enable {
+      default_scscf = cfg.ims.defaultScscf;
     } // lib.optionalAttrs (cfg.ims.enable && cfg.ims.smsc != null) {
       sms_over_ims = cfg.ims.smsc;
     };

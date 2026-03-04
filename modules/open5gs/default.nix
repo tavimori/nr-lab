@@ -342,6 +342,16 @@ in {
         };
       };
       
+      defaultScscf = lib.mkOption {
+        type = lib.types.str;
+        default = "sip:scscf.${cfg.ims.domain}:6060";
+        example = "sip:scscf.ims.mnc070.mcc999.3gppnetwork.org:6060";
+        description = ''
+          Default S-CSCF SIP URI that the HSS assigns to subscribers during
+          IMS registration via the Cx interface.
+        '';
+      };
+      
       smsc = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
