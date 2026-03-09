@@ -1,5 +1,15 @@
 # gNB Configuration
 
+::: danger ⚠️ RF Compliance Warning - Read Before Configuring!
+Before configuring and starting the gNB for radio transmission, ensure you have:
+
+1. ✅ Read [RF Regulations & Compliance](/en/guide/rf-regulations)
+2. ✅ Prepared an **RF shielded box** or **cable connection + attenuator**
+3. ✅ Understood the legal consequences of illegal transmission (5-15 days detention)
+
+If you just want to test software functionality, use ZMQ simulation mode without connecting SDR hardware.
+:::
+
 This page details the srsRAN gNB configuration parameters.
 
 ## Configuration File Structure

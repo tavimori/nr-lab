@@ -1,0 +1,58 @@
+/* Custom styles for NR Lab documentation */
+
+/* Figure styling for images */
+figure {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+figure img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+figure img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+figure figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+  font-style: italic;
+}
+
+/* Dark mode adjustments */
+.dark figure img {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark figure img:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive images in content */
+.vp-doc img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Table improvements */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc th,
+.vp-doc td {
+  padding: 0.75rem 1rem;
+}
+
+/* Code block improvements for ASCII diagrams */
+.vp-doc div[class*="language-"] pre {
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Consolas, Monaco, monospace;
+}

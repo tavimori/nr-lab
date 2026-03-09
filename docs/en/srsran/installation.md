@@ -1,5 +1,11 @@
 # srsRAN Installation
 
+::: danger ⚠️ RF Compliance Reminder
+Before using SDR hardware for radio transmission, please read [RF Regulations & Compliance](/en/guide/rf-regulations).
+
+**Using radio frequencies without approval may result in 5-15 days administrative detention** (China's 2026 Public Security Law). Please prepare an RF shielded box before conducting over-the-air experiments.
+:::
+
 This guide covers compiling and installing srsRAN Project on Ubuntu 22.04.
 
 ## Install Dependencies
@@ -36,6 +42,10 @@ sudo apt install -y libdw-dev
 ```
 
 ## Download UHD FPGA Images
+
+::: warning ⚠️ Have You Prepared Shielding?
+Before connecting your USRP and running gNB, ensure you have an RF shielded box or cable connection setup ready. See [RF Regulations & Compliance](/en/guide/rf-regulations).
+:::
 
 For USRP users, download FPGA images:
 

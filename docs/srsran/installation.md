@@ -1,5 +1,11 @@
 # srsRAN 安装部署
 
+::: danger ⚠️ 射频合规提醒
+在使用 SDR 硬件进行无线电发射之前，请务必阅读 [法律法规与合规要求](/guide/rf-regulations)。
+
+**未经批准使用无线电频率可能导致 5-15 日行政拘留**（《治安管理处罚法》2026年新规）。请准备好射频屏蔽箱后再进行空口实验。
+:::
+
 本指南介绍在 Ubuntu 22.04 上编译安装 srsRAN Project。
 
 ## 安装依赖
@@ -36,6 +42,10 @@ sudo apt install -y libdw-dev
 ```
 
 ## 下载 UHD FPGA 镜像
+
+::: warning ⚠️ 准备好屏蔽措施了吗？
+在连接 USRP 并运行 gNB 之前，请确保你已经准备好了射频屏蔽箱或线缆直连方案。详见 [法律法规与合规要求](/guide/rf-regulations)。
+:::
 
 如果使用 USRP，需要下载 FPGA 镜像：
 

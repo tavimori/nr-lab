@@ -17,6 +17,14 @@ hero:
       link: https://github.com/your-repo/nr-lab
 
 features:
+  - icon: 📚
+    title: 5G Fundamentals
+    details: Learn about 5G network architecture, RAN/Core components, spectrum allocation, and base station types
+    link: /en/guide/5g-architecture
+  - icon: ⚖️
+    title: RF Regulations
+    details: Radio regulations, 2026 Public Security Law, legal experimentation methods
+    link: /en/guide/rf-regulations
   - icon: 🌐
     title: Open5GS Core Network
     details: Complete 5G SA core network deployment with AMF, SMF, UPF and other network functions
@@ -50,6 +58,8 @@ This documentation provides a comprehensive guide for building a private 5G NR n
 
 ### Quick Links
 
+- 📚 [5G System Architecture](/en/guide/5g-architecture) - Understand 5G network fundamentals first
+- ⚖️ [RF Regulations](/en/guide/rf-regulations) - **Must read!** Understand RF compliance requirements
 - 📖 [Prerequisites](/en/guide/prerequisites) - System requirements & software installation
 - 🔧 [Open5GS Installation](/en/open5gs/installation) - Core network deployment steps
 - 📡 [srsRAN Configuration](/en/srsran/gnb-config) - gNB parameter configuration
