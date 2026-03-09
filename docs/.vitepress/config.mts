@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "NR Lab",
   description: "5G NR 实验文档 | 5G NR Lab Documentation",
   
@@ -18,6 +19,7 @@ export default defineConfig({
           { text: '首页', link: '/' },
           { text: '快速开始', link: '/guide/getting-started' },
           { text: 'Open5GS', link: '/open5gs/' },
+          { text: 'IMS', link: '/ims/' },
           { text: 'srsRAN', link: '/srsran/' },
         ],
         sidebar: {
@@ -41,6 +43,17 @@ export default defineConfig({
                 { text: '配置详解', link: '/open5gs/configuration' },
                 { text: '用户管理', link: '/open5gs/subscriber' },
                 { text: 'VoLTE/VoNR', link: '/open5gs/volte' },
+              ]
+            }
+          ],
+          '/ims/': [
+            {
+              text: 'IMS 语音系统',
+              items: [
+                { text: '概述', link: '/ims/' },
+                { text: 'CSCF 三大网元', link: '/ims/cscf' },
+                { text: '注册与入网流程', link: '/ims/registration' },
+                { text: 'VoLTE/VoNR 集成', link: '/ims/volte' },
               ]
             }
           ],
@@ -192,5 +205,5 @@ export default defineConfig({
     ['meta', { name: 'og:locale', content: 'zh_CN' }],
     ['meta', { name: 'og:site_name', content: 'NR Lab' }],
   ]
-})
+}))
 

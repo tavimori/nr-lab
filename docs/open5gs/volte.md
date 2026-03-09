@@ -1,3 +1,13 @@
+# 页面迁移说明
+
+VoLTE/VoNR 相关内容已迁移到新的 IMS 专题章节：
+
+- [IMS 系统概述](/ims/)
+- [CSCF 三大网元](/ims/cscf)
+- [IMS 注册与入网流程](/ims/registration)
+- [VoLTE/VoNR 与 IMS 集成](/ims/volte)
+
+如你是从旧链接进入，请直接使用新地址：`/ims/volte`。
 # VoLTE 与 IMS 系统集成
 
 本文档介绍 VoLTE (Voice over LTE) 和 VoNR (Voice over NR) 的系统架构概念，以及如何与 Open5GS 集成。
@@ -318,53 +328,205 @@ DNS 在 IMS 系统中至关重要，用于服务发现和域名解析。
 
 ### 3GPP 域名格式
 
-IMS 使用标准化的域名格式：
+IMS/EPC 使用标准化的域名格式，根据 MCC/MNC 构建：
 
+```bash
+# 2 位 MNC 需要补零
+[ ${#MNC} == 3 ] && IMS_DOMAIN="ims.mnc${MNC}.mcc${MCC}.3gppnetwork.org" \
+                 || IMS_DOMAIN="ims.mnc0${MNC}.mcc${MCC}.3gppnetwork.org"
+
+# 示例 (MCC=001, MNC=01):
+# ims.mnc001.mcc001.3gppnetwork.org
+# epc.mnc001.mcc001.3gppnetwork.org
+# mnc001.mcc001.pub.3gppnetwork.org
 ```
-ims.mnc<MNC>.mcc<MCC>.3gppnetwork.org
 
-示例 (MCC=001, MNC=01):
-ims.mnc001.mcc001.3gppnetwork.org
-```
+VoLTE 系统通常需要配置以下 DNS Zone：
 
-### 必需的 DNS 记录
+| Zone 类型 | 域名格式 | 用途 |
+|----------|---------|------|
+| **IMS Zone** | `ims.mncXXX.mccXXX.3gppnetwork.org` | IMS 网元发现 (CSCF, HSS) |
+| **EPC Zone** | `epc.mncXXX.mccXXX.3gppnetwork.org` | EPC 网元 (PCRF, ePDG AAA) |
+| **Pub 3GPP Zone** | `mncXXX.mccXXX.pub.3gppnetwork.org` | 公共服务 (ePDG, AES) |
+| **E164 Zone** | `e164.arpa` | ENUM 电话号码映射 |
 
-#### P-CSCF 发现
+### 完整的 DNS Zone 配置示例
 
-UE 通过 DNS 查询发现 P-CSCF：
+以下示例基于 BIND DNS 服务器，展示实际的 VoLTE DNS 配置。
+
+#### IMS Zone 文件
 
 ```dns
-; P-CSCF SRV 记录
-_sip._udp.ims.mnc001.mcc001.3gppnetwork.org. IN SRV 0 0 5060 pcscf.ims.mnc001.mcc001.3gppnetwork.org.
+$ORIGIN ims.mnc001.mcc001.3gppnetwork.org.
+$TTL 1W
+@                       1D IN SOA       localhost. root.localhost. (
+                                        1               ; serial
+                                        3H              ; refresh
+                                        15M             ; retry
+                                        1W              ; expiry
+                                        1D )            ; minimum
 
-; P-CSCF A 记录
-pcscf.ims.mnc001.mcc001.3gppnetwork.org. IN A 10.0.0.10
+                        1D IN NS        ns
+ns                      1D IN A         10.0.0.2
+
+; P-CSCF - 用户第一接触点 (端口 5060)
+pcscf                   1D IN A         10.0.0.10
+_sip._udp.pcscf         1D SRV 0 0 5060 pcscf
+_sip._tcp.pcscf         1D SRV 0 0 5060 pcscf
+
+; I-CSCF - 入口控制 (端口 4060)
+icscf                   1D IN A         10.0.0.11
+_sip._udp               1D SRV 0 0 4060 icscf
+_sip._tcp               1D SRV 0 0 4060 icscf
+
+; S-CSCF - 服务控制 (端口 6060)
+scscf                   1D IN A         10.0.0.12
+_sip._udp.scscf         1D SRV 0 0 6060 scscf
+_sip._tcp.scscf         1D SRV 0 0 6060 scscf
+
+; HSS (IMS 用户数据库)
+hss                     1D IN A         10.0.0.13
+
+; SMSC - 短信中心 (端口 7090)
+smsc                    1D IN A         10.0.0.14
+_sip._udp.smsc          1D SRV 0 0 7090 smsc
+_sip._tcp.smsc          1D SRV 0 0 7090 smsc
+
+; IBCF - 互联边界控制 (端口 5090)
+ibcf                    1D IN A         10.0.0.15
+_sip._udp.ibcf          1D SRV 0 0 5090 ibcf
+_sip._tcp.ibcf          1D SRV 0 0 5090 ibcf
+
+; Voicemail 服务
+voicemail               1D IN A         10.0.0.15
+_sip._udp.voicemail     1D SRV 0 0 5090 voicemail
+_sip._tcp.voicemail     1D SRV 0 0 5090 voicemail
 ```
 
-#### I-CSCF/S-CSCF 发现
+#### EPC Zone 文件
 
 ```dns
-; I-CSCF
-icscf.ims.mnc001.mcc001.3gppnetwork.org. IN A 10.0.0.11
+$ORIGIN epc.mnc001.mcc001.3gppnetwork.org.
+$TTL 1W
+@                       1D IN SOA       localhost. root.localhost. (
+                                        1               ; serial
+                                        3H              ; refresh
+                                        15M             ; retry
+                                        1W              ; expiry
+                                        1D )            ; minimum
 
-; S-CSCF  
-scscf.ims.mnc001.mcc001.3gppnetwork.org. IN A 10.0.0.12
+                        1D IN NS        epcns
+epcns                   1D IN A         10.0.0.2
+
+; PCRF - 策略控制 (Rx 接口)
+pcrf                    1D IN A         10.0.0.20
+
+; ePDG AAA 服务 (VoWiFi)
+aaa                     1D IN A         10.0.0.21
 ```
 
-#### ENUM (E.164 to URI mapping)
-
-用于电话号码到 SIP URI 的转换：
+#### Pub 3GPP Zone 文件 (VoWiFi 相关)
 
 ```dns
-; 电话号码 +1234567890 的 ENUM 记录
-0.9.8.7.6.5.4.3.2.1.e164.arpa. IN NAPTR 10 100 "u" "E2U+sip" "!^.*$!sip:+1234567890@ims.example.com!" .
+$ORIGIN mnc001.mcc001.pub.3gppnetwork.org.
+$TTL 1W
+@                       1D IN SOA       localhost. root.localhost. (
+                                        1               ; serial
+                                        3H              ; refresh
+                                        15M             ; retry
+                                        1W              ; expiry
+                                        1D )            ; minimum
+
+                        1D IN NS        pubns
+pubns                   1D IN A         10.0.0.2
+
+; AES - Access Entitlement Server (VoWiFi 授权)
+aes                     1D IN A         10.0.0.22
+
+; ePDG 入口点
+epdg.epc                1D IN A         10.0.0.23
 ```
+
+#### ENUM Zone 文件 (E.164)
+
+ENUM 用于将电话号码转换为 SIP URI：
+
+```dns
+$TTL 1h
+@ IN SOA ns.e164.arpa. root.e164.arpa. (
+                                        2009010918      ; serial
+                                        3600            ; refresh
+                                        3600            ; retry
+                                        3600            ; expire
+                                        3600            ; minimum TTL
+)
+@ IN NS e164.arpa.
+@ IN A 10.0.0.2
+
+; 通配符 - 将任意 tel:+xxxx 转换为 sip:xxxx@ims.domain
+* IN NAPTR 10 100 "u" "E2U+sip" "!(^.*$)!sip:\\1@ims.mnc001.mcc001.3gppnetwork.org!" .
+
+; 特定国家代码路由到 IBCF (例如德国 +49)
+*.9.4 IN NAPTR 20 100 "u" "E2U+sip" "!(^.*$)!sip:\\1@ibcf.ims.mnc001.mcc001.3gppnetwork.org!" .
+
+; 英国 +44 路由示例
+; *.4.4 IN NAPTR 20 100 "u" "E2U+sip" "!(^.*$)!sip:\\1@ibcf.ims.mnc001.mcc001.3gppnetwork.org!" .
+```
+
+### BIND 配置文件 (named.conf)
+
+```
+options {
+    directory "/var/cache/bind";
+    
+    forwarders {
+        8.8.8.8;        # 公网 DNS 转发
+    };
+
+    dnssec-validation no;
+    allow-query { any; };
+    auth-nxdomain no;
+    listen-on-v6 { any; };
+};
+
+zone "ims.mnc001.mcc001.3gppnetwork.org" {
+    type master;
+    file "/etc/bind/ims_zone";
+};
+
+zone "epc.mnc001.mcc001.3gppnetwork.org" {
+    type master;
+    file "/etc/bind/epc_zone";
+};
+
+zone "mnc001.mcc001.pub.3gppnetwork.org" {
+    type master;
+    file "/etc/bind/pub_3gpp_zone";
+};
+
+zone "e164.arpa" {
+    type master;
+    file "/etc/bind/e164.arpa";
+};
+```
+
+### IMS 组件端口汇总
+
+| 组件 | 默认端口 | 协议 | 说明 |
+|------|---------|------|------|
+| **P-CSCF** | 5060 | SIP (UDP/TCP) | UE 第一接触点 |
+| **I-CSCF** | 4060 | SIP (UDP/TCP) | 域间入口 |
+| **S-CSCF** | 6060 | SIP (UDP/TCP) | 核心会话控制 |
+| **SMSC** | 7090 | SIP (UDP/TCP) | 短信服务 |
+| **IBCF** | 5090 | SIP (UDP/TCP) | 互联边界控制 |
 
 ### DNS 配置要点
 
 1. **内网 DNS 服务器**: 需要部署专用 DNS 服务器（如 dnsmasq, BIND）
 2. **PCO 传递**: EPC/5GC 通过 PCO (Protocol Configuration Options) 将 DNS 服务器地址传递给 UE
 3. **分离解析**: IMS 域名和公网域名可能需要不同的解析策略
+4. **SRV 记录**: 必须配置 SRV 记录以支持 SIP 服务发现
+5. **ENUM 配置**: 如需支持传统电话号码呼叫，需配置 e164.arpa zone
 
 ### VoNR 的 DNS 差异
 

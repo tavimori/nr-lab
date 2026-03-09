@@ -11,11 +11,19 @@
     "type": "git",
     "url": "https://gitcode.com/tavimori/nr-lab.git"
   },
-  "keywords": ["5g", "nr", "open5gs", "srsran", "sdr"],
+  "keywords": [
+    "5g",
+    "nr",
+    "open5gs",
+    "srsran",
+    "sdr"
+  ],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "vitepress": "^1.6.4"
+    "mermaid": "^11.12.3",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }

@@ -112,5 +112,5 @@ sudo tail -f /var/log/open5gs/upf.log
 - [安装部署](/open5gs/installation) - 详细安装步骤
 - [配置详解](/open5gs/configuration) - 各网元配置说明
 - [用户管理](/open5gs/subscriber) - 添加和管理用户
-- [VoLTE 集成](/open5gs/volte) - IMS 与语音服务配置
+- [IMS 与 VoLTE](/ims/volte) - IMS 架构与语音服务配置
 
