@@ -45,6 +45,7 @@ flowchart LR
 - [CSCF 三大网元详解](/ims/cscf)
 - [IMS 注册与入网流程](/ims/registration)
 - [VoLTE/VoNR 集成与部署](/ims/volte)
+- [Signal6A 网关架构](/ims/signal6a) — WebRTC ↔ VoLTE 桥接系统完整参考
 
 ## 与 Open5GS 的关系
 

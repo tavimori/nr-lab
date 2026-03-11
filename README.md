@@ -191,6 +191,18 @@ This project provides NixOS modules for declarative Open5GS 5G/LTE core network 
 | `tun.enable` | `true` | 创建 ogstun 接口 / Create ogstun interface |
 | `nat.enable` | `true` | 启用 NAT / Enable NAT for UE traffic |
 
+#### IMS/VoLTE 配置选项 / IMS/VoLTE Options
+
+| 选项 / Option | 默认值 / Default | 说明 / Description |
+|---------------|------------------|-------------------|
+| `ims.enable` | `false` | 启用 IMS 支持（HSS Cx 接口）/ Enable IMS (HSS Cx interface) |
+| `ims.domain` | `"ims.mnc001.mcc001.3gppnetwork.org"` | IMS 域名 / IMS domain |
+| `ims.icscf.address` | `"127.0.0.30"` | I-CSCF (Kamailio) 地址 / I-CSCF address |
+| `ims.icscf.port` | `3869` | I-CSCF Diameter 端口 / I-CSCF Diameter port |
+| `ims.scscf.address` | `"127.0.0.31"` | S-CSCF (Kamailio) 地址 / S-CSCF address |
+| `ims.scscf.port` | `3870` | S-CSCF Diameter 端口 / S-CSCF Diameter port |
+| `ims.smsc` | `null` | SMS over IMS 的 SMSC SIP URI |
+
 #### 外部接口配置 / External Interface Options
 
 连接外部基站（小基站、RRU）时，需要将相关接口绑定到外部 IP。
@@ -293,7 +305,98 @@ services.open5gs = {
 };
 ```
 
-> **参考 / Reference**: [Open5GS Quickstart Guide](https://open5gs.org/open5gs/docs/guide/01-quickstart/)
+#### VoLTE/IMS 支持 - 连接 Kamailio IMS
+
+要启用 VoLTE，需要配置 HSS 的 Cx 接口以连接 Kamailio I-CSCF/S-CSCF。
+
+To enable VoLTE, configure HSS Cx interface to connect to Kamailio I-CSCF/S-CSCF.
+
+```nix
+services.open5gs = {
+  enable = true;
+  mode = "lte";  # VoLTE 需要 LTE 模式
+  
+  plmn = { mcc = "001"; mnc = "01"; };
+  tac = 1;
+  networkName = "VoLTE Lab";
+  
+  # 4G 接口
+  s1ap.address = "192.168.1.100";
+  sgwuGtpu.address = "192.168.1.100";
+  
+  userPlane = {
+    subnet = "10.45.0.0/16";
+    gateway = "10.45.0.1";
+    dnn = "internet";
+  };
+  
+  # 启用 IMS/VoLTE 支持
+  ims = {
+    enable = true;
+    
+    # IMS 域名 (应与 Kamailio 配置匹配)
+    domain = "ims.mnc001.mcc001.3gppnetwork.org";
+    
+    # Kamailio I-CSCF 连接配置
+    icscf = {
+      address = "192.168.1.101";  # I-CSCF IP
+      port = 3869;                # Diameter port
+    };
+    
+    # Kamailio S-CSCF 连接配置
+    scscf = {
+      address = "192.168.1.102";  # S-CSCF IP
+      port = 3870;                # Diameter port
+    };
+    
+    # 可选: SMS over IMS
+    # smsc = "sip:smsc.ims.mnc001.mcc001.3gppnetwork.org:7090";
+  };
+};
+```
+
+**架构说明 / Architecture:**
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │            Open5GS HSS                      │
+                    │     (同时服务 EPC 和 IMS)                    │
+                    │                                             │
+                    │  ┌─────────────┐    ┌─────────────────────┐ │
+                    │  │ S6a 接口    │    │     Cx 接口          │ │
+                    │  └──────┬──────┘    └──────┬────────┬─────┘ │
+                    └─────────┼───────────────────┼────────┼──────┘
+                              │                   │        │
+                              ▼                   ▼        ▼
+                    ┌─────────────────┐  ┌────────────┐  ┌────────────┐
+                    │      MME        │  │  I-CSCF    │  │  S-CSCF    │
+                    │   (Open5GS)     │  │ (Kamailio) │  │ (Kamailio) │
+                    └─────────────────┘  └────────────┘  └────────────┘
+                           EPC                    IMS
+```
+
+**Kamailio 配置要点 / Kamailio Configuration:**
+
+I-CSCF 需要配置 Diameter peer 指向 Open5GS HSS：
+```xml
+<!-- icscf.xml -->
+<Peer FQDN="hss.epc.mnc001.mcc001.3gppnetwork.org" 
+      Realm="epc.mnc001.mcc001.3gppnetwork.org" 
+      port="3868"/>
+```
+
+S-CSCF 同样需要配置：
+```xml
+<!-- scscf.xml -->
+<Peer FQDN="hss.epc.mnc001.mcc001.3gppnetwork.org" 
+      Realm="epc.mnc001.mcc001.3gppnetwork.org" 
+      port="3868"/>
+```
+
+> **参考 / Reference**: 
+> - [Open5GS Quickstart Guide](https://open5gs.org/open5gs/docs/guide/01-quickstart/)
+> - [Open5GS VoLTE Tutorial](https://open5gs.org/open5gs/docs/tutorial/02-VoLTE-setup/)
+> - [docker_open5gs HSS Cx](https://github.com/herlesupreeth/docker_open5gs/tree/master/custom_deployments/open5gs_hss_cx)
 
 ### 服务管理 / Service Management
 

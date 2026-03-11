@@ -192,9 +192,11 @@ in {
       session = [{
         subnet = cfg.userPlane.subnet;
         gateway = cfg.userPlane.gateway;
+        dnn = cfg.userPlane.dnn;
       }] ++ lib.optionals cfg.ims.enable [{
         subnet = cfg.ims.subnet;
         gateway = cfg.ims.gateway;
+        dnn = cfg.ims.dnn;
       }];
       
       dns = [

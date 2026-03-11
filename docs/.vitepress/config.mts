@@ -64,6 +64,7 @@ export default withMermaid(defineConfig({
                 { text: 'CSCF 三大网元', link: '/ims/cscf' },
                 { text: '注册与入网流程', link: '/ims/registration' },
                 { text: 'VoLTE/VoNR 集成', link: '/ims/volte' },
+                { text: 'Signal6A 网关架构', link: '/ims/signal6a' },
               ]
             }
           ],
