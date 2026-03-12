@@ -46,6 +46,7 @@ flowchart LR
 - [IMS 注册与入网流程](/ims/registration)
 - [VoLTE/VoNR 集成与部署](/ims/volte)
 - [Signal6A 网关架构](/ims/signal6a) — WebRTC ↔ VoLTE 桥接系统完整参考
+- [手机端 VoLTE 设置](/ims/phone-setup) — 不同机型启用 VoLTE 的具体操作
 
 ## 与 Open5GS 的关系
 
