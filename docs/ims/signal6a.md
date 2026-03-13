@@ -511,6 +511,42 @@ sequenceDiagram
 4. **bflag 10** 标记为外部通话，触发 rtpengine 转码
 5. I-CSCF 查询 HSS → S-CSCF 查找用户 → P-CSCF → UE
 
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant GW as Gateway Kamailio
+    participant I as I-CSCF
+    participant H as HSS
+    participant S as S-CSCF
+    participant P as P-CSCF
+    participant UE as VoLTE UE
+
+    B->>GW: INVITE sip:+861380000@gateway.example.com（WSS）
+    Note over GW: lookup("location") 失败<br/>→ 本地无此用户
+
+    Note over GW: IMS 桥接启用，号码匹配前缀<br/>→ 改写 R-URI 到 IMS 域<br/>→ 设 bflag 10（外部通话）
+
+    GW->>I: INVITE sip:+861380000@ims.mnc044.mcc460.3gppnetwork.org（TCP）
+    Note over GW: rtpengine: Opus/DTLS-SRTP → AMR-WB/RTP
+
+    I->>H: Diameter LIR（查被叫的 S-CSCF）
+    H-->>I: LIA（S-CSCF 地址）
+    I->>S: INVITE
+
+    Note over S: lookup("location") 成功<br/>→ 用户已在 IMS 注册
+
+    S->>P: INVITE（经 Path/Route 到 P-CSCF）
+    P->>UE: INVITE（经 IPsec ESP）
+    UE-->>P: 200 OK
+    P-->>S: 200 OK
+    S-->>I: 200 OK
+    I-->>GW: 200 OK
+    Note over GW: rtpengine: 处理 SDP Answer
+    GW-->>B: 200 OK（WSS）
+
+    Note over B,UE: DTLS-SRTP/Opus ══ rtpengine ══ RTP/AMR-WB (IPsec)
+```
+
 ### 7.2 VoLTE → WebRTC 方向
 
 配置项：`services.kamailio-ims.scscf.gateway.*`
@@ -522,6 +558,43 @@ sequenceDiagram
 3. **R-URI 域改写**（可选）：若配置了 `gateway.domain`
 4. **目标设置**：`$du = "sip:" + gateway.host + ":" + gateway.port + ";transport=tcp"`
 5. Gateway 收到请求，LOCATION 查找到 WebRTC 用户，经 WebSocket 送达
+
+```mermaid
+sequenceDiagram
+    participant UE as VoLTE UE
+    participant P as P-CSCF
+    participant I as I-CSCF
+    participant H as HSS
+    participant S as S-CSCF
+    participant GW as Gateway Kamailio
+    participant B as Browser
+
+    UE->>P: INVITE sip:alice@ims.example.com（IPsec）
+    Note over P: 发起方向：UE 已注册<br/>→ 缓存 UE 地址，转发到 I-CSCF
+    P->>I: INVITE
+    I->>H: Diameter LIR（查被叫的 S-CSCF）
+    H-->>I: LIA（S-CSCF 地址）
+    I->>S: INVITE
+
+    Note over S: lookup("location") 失败<br/>→ 被叫不在 IMS 中
+
+    Note over S: Gateway 回落启用<br/>→ 检查源 IP ≠ Gateway IP<br/>→ 转发到 Gateway
+
+    S->>GW: INVITE sip:alice@gateway.example.com（TCP）
+
+    Note over GW: lookup("location") 成功<br/>→ alice 是已注册的 WebRTC 用户
+
+    Note over GW: rtpengine: AMR-WB/RTP → Opus/DTLS-SRTP
+    GW->>B: INVITE（WSS）
+    B-->>GW: 200 OK
+    Note over GW: rtpengine: 处理 SDP Answer
+    GW-->>S: 200 OK
+    S-->>I: 200 OK
+    I-->>P: 200 OK
+    P-->>UE: 200 OK（IPsec）
+
+    Note over UE,B: RTP/AMR-WB (IPsec) ══ rtpengine ══ DTLS-SRTP/Opus
+```
 
 ### 7.3 环路防护
 

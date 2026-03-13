@@ -151,6 +151,69 @@ sequenceDiagram
     A<<->>B: RTP Media
 ```
 
+## IMS 域内通话完整流程
+
+上图将 IMS 简化为一个黑盒。下面展开 CSCF 链路，展示两个 VoLTE UE 在同一 IMS 域内通话时，INVITE 如何在各网元之间路由：
+
+```mermaid
+sequenceDiagram
+    participant A as UE_A（主叫）
+    participant PA as P-CSCF_A
+    participant I as I-CSCF
+    participant S as S-CSCF
+    participant H as HSS
+    participant PB as P-CSCF_B
+    participant B as UE_B（被叫）
+
+    Note over A: UE_A 已注册，拨打 UE_B 号码
+
+    A->>PA: INVITE sip:UE_B@ims.example.com（IPsec）
+    Note over PA: 发起方向：UE_A 已注册<br/>→ 缓存 UE_A 地址<br/>→ 转发到 I-CSCF
+
+    PA->>I: INVITE
+    I->>H: Diameter LIR（查 UE_B 的 S-CSCF）
+    H-->>I: LIA（返回 S-CSCF 地址）
+    I->>S: INVITE
+
+    Note over S: lookup("location") 成功<br/>→ UE_B 已注册，Contact 指向 P-CSCF_B（经 Path）
+
+    S->>PB: INVITE
+    Note over PB: 终结方向：请求来自 IMS 核心<br/>→ ipsec_forward() 解析 UE_B 的 IPsec 地址
+    PB->>B: INVITE（IPsec）
+
+    B-->>PB: 180 Ringing
+    PB-->>S: 180 Ringing
+    S-->>I: 180 Ringing
+    I-->>PA: 180 Ringing
+    PA-->>A: 180 Ringing
+
+    B-->>PB: 200 OK + SDP Answer
+    PB-->>S: 200 OK
+    S-->>I: 200 OK
+    I-->>PA: 200 OK
+    PA-->>A: 200 OK
+
+    A->>PA: ACK
+    PA->>I: ACK
+    I->>S: ACK
+    S->>PB: ACK
+    PB->>B: ACK
+
+    Note over A,B: RTP/AMR-WB 语音媒体（UE 之间直接或经 rtpengine）
+```
+
+### 路由关键点
+
+上面的流程中有几个值得注意的细节：
+
+**主叫侧 P-CSCF 与被叫侧 P-CSCF 可以相同也可以不同。** 在实验环境中通常只有一个 P-CSCF 实例（`PA` 和 `PB` 是同一进程），但在运营商网络中，主叫和被叫可能接入不同地区的 P-CSCF。
+
+**I-CSCF 在域内通话中仍然参与。** 即使主叫和被叫在同一 S-CSCF 上，P-CSCF 也不会直接发到 S-CSCF——它总是先经过 I-CSCF，由 I-CSCF 查 HSS 决定路由。这保证了架构的一致性和 S-CSCF 分配的灵活性（参见 [为什么 I-CSCF 和 S-CSCF 要分开](/ims/cscf#为什么-i-cscf-和-s-cscf-要分开)）。
+
+**S-CSCF 的 `lookup()` 是决策点。** 如果被叫在 IMS 中注册，S-CSCF 通过 Contact + Path 将 INVITE 路由到被叫的 P-CSCF。如果未注册，则触发 Gateway 回落（见 [Signal6A 桥接机制](/ims/signal6a#_7-桥接-webrtc-↔-ims)）或返回 404。
+
+**媒体路径取决于部署。** 同域 VoLTE 通话中，如果两个 UE 都使用 AMR-WB 且无需转码，RTP 可以直接在 UE 之间流动（或经 P-CSCF 的 rtpengine 锚定以维持 NAT 穿越）。跨域通话才必须经 rtpengine 转码。
+
 ## SMS 在 LTE/5G 的位置
 
 VoLTE/VoNR 解决的是语音，SMS 需要单独方案：
