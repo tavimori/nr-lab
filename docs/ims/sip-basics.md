@@ -13,10 +13,51 @@
 
 ## 什么是 SIP
 
-SIP（Session Initiation Protocol）是文本协议，风格类似 HTTP，采用请求/响应模型。  
-一个典型 SIP URI 形如：`sip:alice@example.com`。
+SIP（Session Initiation Protocol）是文本协议，风格类似 HTTP，采用请求/响应模型。
 
-常见 SIP 角色：
+### SIP URI 格式
+
+SIP 用 URI 标识用户和服务，基本格式：
+
+```
+sip:user@domain
+```
+
+例如 `sip:alice@example.com`。但在实际抓包中你会看到更复杂的形式，特别是 VoLTE 通话中的 INVITE Request-URI 和 To/From 头：
+
+```
+sip:+8613800001234@ims.mnc044.mcc460.3gppnetwork.org;user=phone
+```
+
+这里有两个常见参数：
+
+**`user=phone`**：表示 `@` 前面的部分是一个电话号码，而不是普通用户名。SIP Proxy 看到 `user=phone` 后知道应按电话号码路由规则处理（如查号码前缀、匹配 E.164 格式），而不是当作 SIP 账户名去 usrloc 里查找。
+
+**`phone-context`**：当号码不是全球唯一的（非 E.164 格式，如本地分机号）时，`phone-context` 指明号码所属的域或拨号上下文，帮助 Proxy 理解号码含义。完整形式如：
+
+```
+sip:1001;phone-context=example.com@ims.example.com;user=phone
+```
+
+这里 `1001` 是一个本地号码，`phone-context=example.com` 说明它属于 `example.com` 这个拨号域。
+
+还有一种等价的 `tel:` URI 格式（RFC 3966），有时会出现在 IMS 信令中：
+
+```
+tel:+8613800001234
+tel:1001;phone-context=example.com
+```
+
+SIP Proxy 通常会将 `tel:` URI 转换为带 `user=phone` 的 `sip:` URI 再处理。
+
+| URI 示例 | 含义 |
+|----------|------|
+| `sip:alice@example.com` | 普通 SIP 用户 |
+| `sip:+861380000@ims.example.com;user=phone` | E.164 电话号码（全球唯一） |
+| `sip:1001;phone-context=home.example.com@ims.example.com;user=phone` | 本地号码，属于指定拨号域 |
+| `tel:+861380000` | tel URI，需转为 sip URI 路由 |
+
+### 常见 SIP 角色
 
 - **UA（User Agent）**：终端（手机、软电话）发起和接收 SIP 消息
 - **Registrar**：处理 `REGISTER`，维护用户当前 Contact
