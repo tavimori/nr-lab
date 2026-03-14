@@ -392,6 +392,8 @@ SIP 只管“怎么建立/结束会话”，不直接承载语音流。
 
 这也是为什么很多系统会出现“信令通了但没声音”：信令面（SIP）和媒体面（RTP）需分别排障。
 
+关于 RTP 的详细工作原理、音频编解码（AMR-WB、Opus 等）、以及 rtpengine 如何作为媒体代理改变通话的媒体路径，请参见 [RTP 与实时音频传输](/ims/rtp)。
+
 ## SIP 与 IMS 的关系
 
 IMS 不是替代 SIP，而是在运营商级网络里对 SIP 做体系化增强：
@@ -414,5 +416,6 @@ flowchart LR
 
 继续阅读：
 
+- [RTP 与实时音频传输](/ims/rtp) — RTP 协议、音频编解码与 rtpengine 媒体代理
 - [CSCF 三大网元详解](/ims/cscf)
 - [IMS 注册与入网流程](/ims/registration)

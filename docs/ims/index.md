@@ -43,6 +43,7 @@ flowchart LR
 ## 本章节内容
 
 - [SIP 协议基础](/ims/sip-basics) — SIP 协议与 IP 电话基础知识
+- [RTP 与实时音频](/ims/rtp) — RTP 协议、音频编解码与 rtpengine 媒体代理
 - [CSCF 三大网元详解](/ims/cscf)
 - [IMS 注册与入网流程](/ims/registration)
 - [VoLTE/VoNR 集成与部署](/ims/volte)

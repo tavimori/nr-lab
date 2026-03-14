@@ -62,6 +62,7 @@ export default withMermaid(defineConfig({
               items: [
                 { text: '概述', link: '/ims/' },
                 { text: 'SIP 协议基础', link: '/ims/sip-basics' },
+                { text: 'RTP 与实时音频', link: '/ims/rtp' },
                 { text: 'CSCF 三大网元', link: '/ims/cscf' },
                 { text: '注册与入网流程', link: '/ims/registration' },
                 { text: 'VoLTE/VoNR 集成', link: '/ims/volte' },
