@@ -371,6 +371,334 @@ Route: <sip:scscf.example.com;lr>
 在 IMS 中，P-CSCF 和 S-CSCF 都会插入 `Record-Route`（Kamailio 中调用 `record_route()`），这样通话建立后的 BYE、re-INVITE 仍然经过 CSCF 链，CSCF 才能做媒体控制（如 rtpengine 拆除）和计费。收到对话内请求时，Kamailio 调用 `loose_route()` 按 Route 头逐跳转发。这些都是标准 SIP 机制——IMS 只是强制要求 CSCF 必须使用它们，并通过 Service-Route 扩展到新对话。详见 [CSCF 三大网元详解](/ims/cscf)。
 :::
 
+## SIP 事务模型：请求、响应与 CANCEL 的路由规则
+
+前面讲了 Via 控制响应回程、Record-Route/Route 控制对话内请求。但在实际排障中，你还需要理解更底层的问题：**不同类型的 SIP 消息到底遵循什么路由规则？** 响应是自动走回来的还是需要路由？CANCEL 是走新路径还是复用已有路径？ACK 为什么有时候经过 Proxy 有时候不经过？
+
+这些问题的答案来自 SIP 的**事务模型**。
+
+### 什么是 SIP 事务
+
+SIP 事务（Transaction）是一次请求-响应的完整交互。一个事务包含：
+
+- 一个请求（如 INVITE、REGISTER、BYE）
+- 该请求的所有响应（临时响应 1xx + 最终响应 2xx/3xx/4xx/5xx/6xx）
+- 对于 INVITE 事务，还包括对非 2xx 最终响应的 ACK
+
+事务由 Via 头中的 **`branch` 参数**唯一标识。每个 Proxy 转发请求时生成新的 branch，收到响应时通过 branch 匹配到对应的请求事务。
+
+```mermaid
+flowchart TB
+    subgraph tx ["一个 INVITE 事务"]
+        req["INVITE 请求"]
+        r100["100 Trying"]
+        r180["180 Ringing"]
+        r200["200 OK"]
+        req --> r100
+        req --> r180
+        req --> r200
+    end
+```
+
+### 三类消息的路由规则
+
+SIP 中所有消息可以分为三类，每类有完全不同的路由机制：
+
+| 类别 | 消息 | 路由方式 | 路由依据 |
+|------|------|----------|----------|
+| **响应** | 100 Trying, 180 Ringing, 200 OK, 486 Busy, ... | 沿 Via 逐跳回退 | Via 头（事务层自动处理） |
+| **事务内请求** | CANCEL, ACK（对非 2xx 响应） | 与原始请求走相同路径 | 匹配原请求的事务状态 |
+| **对话内请求** | BYE, re-INVITE, ACK（对 2xx 响应）, UPDATE | 按 Route 头独立路由 | Route 头（来自 Record-Route） |
+
+这三类的关键区别是：**谁决定消息往哪发？**
+
+- 响应：由事务层自动按 Via 转发，Proxy 不需要做路由决策
+- CANCEL：由事务层匹配到原 INVITE 事务，发往相同目标
+- 对话内请求：由 UA 根据 Route 头构造，走正常的路由流程
+
+### 响应的路由：Via 自动回退
+
+这在 [Via 章节](#via-响应的回程路径)已经介绍过基本原理。这里补充几个重要细节：
+
+**响应不经过 `request_route`。** 在 Kamailio 中，`request_route` 只处理请求。响应由 `tm` 模块（事务管理）自动按 Via 转发。你可以用 `onreply_route` 来修改经过的响应（如剥离头域、改写 SDP），但**不需要也不应该手动路由响应**——事务层已经知道该往哪发。
+
+**100 Trying 是特殊的。** Proxy 收到 INVITE 后通常立即向上游发送自己的 `100 Trying`（表示"我收到了，正在处理"），而不是转发下游的 100 Trying。从上游（主叫侧）来看，它收到的 100 Trying 来自直接相邻的 Proxy，而非被叫。
+
+**1xx 临时响应（180 Ringing, 183 Session Progress）正常转发。** 它们沿 Via 逐跳回退到主叫。在多 Proxy 环境中（如 IMS 的 CSCF 链），被叫发出的 180 Ringing 会经过 P-CSCF → S-CSCF → I-CSCF → Gateway → 主叫，每一跳都由 `tm` 模块自动转发。
+
+### CANCEL 的路由：绑定到 INVITE 事务
+
+CANCEL 用于取消一个正在进行中（已发出 INVITE 但未收到最终响应）的呼叫。它的路由规则是 SIP 中最容易误解的部分之一。
+
+**CANCEL 不是一个独立路由的请求。** 它必须匹配到一个已存在的 INVITE 事务。具体来说：
+
+- CANCEL 的 Call-ID、From-tag、CSeq 编号和 R-URI 必须与原 INVITE 相同
+- CANCEL 的顶层 Via branch 必须与原 INVITE 相同
+- Proxy 收到 CANCEL 后，在事务层查找匹配的 INVITE 事务，将 CANCEL 转发到**与 INVITE 相同的目标**
+
+```mermaid
+sequenceDiagram
+    participant A as 主叫
+    participant P1 as Proxy A
+    participant P2 as Proxy B
+    participant B as 被叫
+
+    A->>P1: INVITE（branch=abc）
+    P1->>P2: INVITE（branch=def）
+    P2->>B: INVITE（branch=ghi）
+
+    B-->>P2: 180 Ringing
+    P2-->>P1: 180 Ringing
+    P1-->>A: 180 Ringing
+
+    Note over A: 主叫取消呼叫
+
+    A->>P1: CANCEL（branch=abc）
+    Note over P1: tm 模块匹配 branch=abc<br/>找到对应 INVITE 事务<br/>→ CANCEL 发往与 INVITE 相同目标
+    P1->>P2: CANCEL（branch=def）
+    Note over P2: 同理匹配 INVITE 事务
+    P2->>B: CANCEL（branch=ghi）
+
+    B-->>P2: 200 OK（对 CANCEL）
+    P2-->>P1: 200 OK（对 CANCEL）
+    P1-->>A: 200 OK（对 CANCEL）
+
+    B-->>P2: 487 Request Terminated（对 INVITE）
+    P2-->>P1: 487 Request Terminated
+    P1-->>A: 487 Request Terminated
+
+    A->>P1: ACK（对 487）
+    P1->>P2: ACK（对 487）
+    P2->>B: ACK（对 487）
+```
+
+CANCEL 完成后会产生两个响应：
+1. `200 OK` — 对 CANCEL 本身的确认（"我收到了你的取消请求"）
+2. `487 Request Terminated` — 对原 INVITE 的最终响应（"原来的通话请求已被终止"）
+
+::: warning CANCEL 只能取消未完成的事务
+CANCEL 只对正在处理中的 INVITE（已发送但未收到最终响应）有效。如果被叫已经接听（200 OK 已发出），CANCEL 不起作用——此时需要发 BYE 来结束已建立的通话。这是"取消呼叫"和"挂断电话"的本质区别。
+:::
+
+### ACK 的两种路由方式
+
+ACK 是 SIP 中路由规则最复杂的消息，因为**对 2xx 和对非 2xx 响应的 ACK 走完全不同的路径**：
+
+#### ACK 对 2xx（通话建立成功）：端到端，走对话路由
+
+当被叫接听（200 OK），主叫发出的 ACK 是一个**新事务**，走对话路由——和 BYE 一样，按 Route 头（来自 200 OK 的 Record-Route 反转）逐跳转发：
+
+```mermaid
+sequenceDiagram
+    participant A as 主叫
+    participant P as Proxy（Record-Route）
+    participant B as 被叫
+
+    B-->>P: 200 OK（Record-Route: Proxy）
+    P-->>A: 200 OK
+
+    A->>P: ACK（Route: Proxy）
+    Note over P: 按 Route 头转发（loose_route）
+    P->>B: ACK
+```
+
+这个 ACK 经过所有插入了 Record-Route 的 Proxy。这也是为什么 Kamailio 的 WITHINDLG 路由中需要处理 ACK——它和 BYE 一样是对话内请求，经过 `loose_route()` 转发。
+
+#### ACK 对非 2xx（通话失败/拒绝/取消）：事务层自动，逐跳
+
+当 INVITE 收到 4xx/5xx/6xx 最终响应（如 486 Busy、487 Terminated、603 Decline），每个 Proxy **自动在事务层生成 ACK** 发给下游，同时将该错误响应转发给上游。这个 ACK 不需要路由配置，完全由 `tm` 模块处理。
+
+```mermaid
+sequenceDiagram
+    participant A as 主叫
+    participant P as Proxy
+    participant B as 被叫
+
+    B-->>P: 486 Busy Here
+    Note over P: tm 自动生成 ACK 发给 B<br/>同时转发 486 给 A
+    P->>B: ACK（自动生成）
+    P-->>A: 486 Busy Here
+    A->>P: ACK
+```
+
+#### 为什么 ACK 要区分对待？
+
+设计原因是可靠性。2xx 响应表示通话建立成功——这个 ACK 必须端到端送达被叫，确认通话已建立。如果中间 Proxy 不在对话路径上（没有 Record-Route），ACK 就直接从主叫发到被叫。
+
+非 2xx 响应表示通话失败——不需要端到端确认，只需要每一跳逐级确认收到了错误响应。Proxy 自动完成这件事。
+
+### 完整呼叫流程中的消息分类
+
+把以上规则应用到一个完整的呼叫流程中：
+
+```mermaid
+sequenceDiagram
+    participant A as 主叫
+    participant P as SIP Proxy
+    participant B as 被叫
+
+    rect rgb(230, 245, 255)
+        Note over A,B: INVITE 事务
+        A->>P: INVITE
+        P->>B: INVITE
+        B-->>P: 100 Trying
+        P-->>A: 100 Trying
+        B-->>P: 180 Ringing
+        P-->>A: 180 Ringing
+        B-->>P: 200 OK
+        P-->>A: 200 OK
+    end
+
+    rect rgb(230, 255, 230)
+        Note over A,B: ACK（新事务，对话内请求）
+        A->>P: ACK（按 Route 头路由）
+        P->>B: ACK
+    end
+
+    rect rgb(255, 255, 230)
+        Note over A,B: RTP 媒体流
+        A-->>B: RTP 语音
+        B-->>A: RTP 语音
+    end
+
+    rect rgb(255, 230, 230)
+        Note over A,B: BYE 事务（对话内请求）
+        A->>P: BYE（按 Route 头路由）
+        P->>B: BYE
+        B-->>P: 200 OK
+        P-->>A: 200 OK
+    end
+```
+
+| 消息 | 所属类别 | 路由方式 |
+|------|----------|----------|
+| INVITE | 初始请求 | Proxy 按路由逻辑决定（`request_route`） |
+| 100 Trying | 响应 | Proxy 自动生成，不转发下游的 |
+| 180 Ringing | 响应 | 沿 Via 逐跳自动回退 |
+| 200 OK | 响应 | 沿 Via 逐跳自动回退 |
+| ACK（对 200） | 对话内请求 | 按 Route 头路由（`loose_route()`） |
+| BYE | 对话内请求 | 按 Route 头路由（`loose_route()`） |
+
+### 在 IMS CSCF 链中的实际路径
+
+将这些规则应用到 IMS 的 CSCF 链中——以 VoLTE UE 呼叫 WebRTC 用户为例，展示通话建立和取消两种场景中各类消息的路径：
+
+#### 场景 A：正常接听
+
+```mermaid
+sequenceDiagram
+    participant UE as VoLTE UE
+    participant P as P-CSCF
+    participant I as I-CSCF
+    participant S as S-CSCF
+    participant GW as Gateway
+    participant B as Browser
+
+    Note over UE,B: ── INVITE 事务 ──
+    UE->>P: INVITE
+    P->>I: INVITE
+    I->>S: INVITE
+    S->>GW: INVITE
+    GW->>B: INVITE
+
+    Note over UE,B: 响应沿 Via 自动回退
+    B-->>GW: 180 Ringing
+    GW-->>S: 180 Ringing
+    S-->>I: 180 Ringing
+    I-->>P: 180 Ringing
+    P-->>UE: 180 Ringing
+
+    B-->>GW: 200 OK + SDP
+    Note over GW: onreply_route:<br/>rtpengine 处理 SDP Answer
+    GW-->>S: 200 OK
+    S-->>I: 200 OK
+    I-->>P: 200 OK
+    P-->>UE: 200 OK
+
+    Note over UE,B: ── ACK 对话内路由 ──
+    UE->>P: ACK（Route 头）
+    Note over P: loose_route()
+    P->>S: ACK
+    Note over S: loose_route()
+    S->>GW: ACK
+    Note over GW: loose_route() + rtpengine
+    GW->>B: ACK
+```
+
+每个节点的 `onreply_route` 可以修改经过的响应（如 Gateway 剥离 100rel 头、处理 SDP），但**不需要决定响应往哪发**——`tm` 模块自动按 Via 转发。
+
+#### 场景 B：主叫取消
+
+```mermaid
+sequenceDiagram
+    participant UE as VoLTE UE
+    participant P as P-CSCF
+    participant I as I-CSCF
+    participant S as S-CSCF
+    participant GW as Gateway
+    participant B as Browser
+
+    UE->>P: INVITE
+    P->>I: INVITE
+    I->>S: INVITE
+    S->>GW: INVITE
+    GW->>B: INVITE
+
+    B-->>GW: 180 Ringing
+    GW-->>S: 180 Ringing
+    S-->>I: 180 Ringing
+    I-->>P: 180 Ringing
+    P-->>UE: 180 Ringing
+
+    Note over UE: UE 挂断（未接通）
+
+    UE->>P: CANCEL
+    Note over P: 匹配 INVITE 事务<br/>转发到与 INVITE 相同目标
+    P->>I: CANCEL
+    I->>S: CANCEL
+    S->>GW: CANCEL
+    GW->>B: CANCEL
+
+    B-->>GW: 200 OK（对 CANCEL）
+    GW-->>S: 200 OK
+    S-->>I: 200 OK
+    I-->>P: 200 OK
+    P-->>UE: 200 OK
+
+    B-->>GW: 487 Request Terminated（对 INVITE）
+    Note over GW: rtpengine_delete()
+    GW-->>S: 487
+    S-->>I: 487
+    I-->>P: 487
+    P-->>UE: 487
+
+    Note over UE,B: 每个节点的 tm 自动生成 ACK（对 487）逐跳确认
+```
+
+CANCEL 在每个 Proxy 节点上都由 `tm` 模块匹配到对应的 INVITE 事务后自动转发。在 Kamailio 的 `request_route` 中你只需要：
+
+```
+if (is_method("CANCEL")) {
+    if (t_check_trans())    // 找到匹配的 INVITE 事务
+        t_relay();          // 转发 CANCEL
+    exit;
+}
+```
+
+不需要做任何路由决策——目标地址已经由 INVITE 事务决定了。
+
+### 小结：排障思维
+
+理解这三类路由规则后，排障时可以按类型定位问题：
+
+| 症状 | 可能的消息类型问题 | 排查方向 |
+|------|-------------------|----------|
+| 主叫听不到回铃音 | 180 Ringing 响应未到达 | 检查 Via 路径上每一跳是否有状态转发（`t_relay()`）；检查防火墙是否阻断了响应 |
+| CANCEL 后对方仍在响铃 | CANCEL 未匹配到 INVITE 事务 | 检查 CANCEL 是否到达了所有 Proxy；检查 `t_check_trans()` 是否成功 |
+| 通话接通但无法挂断 | BYE 路由失败 | 检查 Record-Route 是否正确插入；检查 `loose_route()` 是否成功 |
+| ACK 未到达被叫 | ACK（对 2xx）路由失败 | 检查 Route 头是否正确（来自 Record-Route 反转）；检查 WITHINDLG 路由 |
+
+
 ## SDP 与媒体协商（Offer/Answer）
 
 SIP 消息中的媒体参数通常由 SDP 承载：

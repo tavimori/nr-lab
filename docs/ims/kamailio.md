@@ -130,6 +130,161 @@ Kamailio 提供两类 flag，用作路由决策的布尔标记：
 
 bflag 10 在 Signal6A 中至关重要：LOCATION 路由将非本地通话标记为 `bflag 10`，RTPENGINE 路由根据此 flag 决定是否做 WebRTC↔SIP 转码。
 
+## 事务、响应与 CANCEL：Kamailio 的处理方式
+
+在 [SIP 协议基础](/ims/sip-basics#sip-事务模型-请求-响应与-cancel-的路由规则)中我们介绍了 SIP 事务模型的三类消息路由规则。这里从 Kamailio 实现的角度，解释这些规则如何体现在配置和运行时行为中。
+
+### 有状态转发 vs 无状态转发
+
+Kamailio 提供两种转发模式：
+
+| 模式 | 函数 | 事务跟踪 | 响应处理 | Signal6A 中的使用 |
+|------|------|----------|----------|-------------------|
+| **有状态** | `t_relay()` | 创建事务，记住请求和目标 | 自动按 Via 转发响应，触发 `onreply_route` | 所有 CSCF 和 Gateway 的核心转发 |
+| **无状态** | `forward()` | 不创建事务 | 不处理响应 | Signal6A 中未使用 |
+
+Signal6A 的所有 Kamailio 实例都使用有状态转发（`t_relay()`）。这意味着：
+
+1. **Kamailio 转发 INVITE 时**：`tm` 模块创建一个服务端事务（server transaction，对接上游）和客户端事务（client transaction，对接下游），记录 Via branch 和目标地址
+2. **下游响应到来时**：`tm` 通过 Via branch 匹配到对应的客户端事务，自动将响应转发给上游的服务端事务方向——**这一步完全不经过 `request_route`**
+3. **`onreply_route` 是一个钩子**：它让你有机会在响应被自动转发之前修改响应内容（如改写 SDP、剥离头域），但路由方向本身已经确定
+
+```mermaid
+flowchart TB
+    subgraph incoming ["上游（请求来源）"]
+        stx["服务端事务<br/>（记住上游 Via）"]
+    end
+    subgraph kamailio ["Kamailio 处理"]
+        rr["request_route<br/>（仅处理请求）"]
+        trelay["t_relay()"]
+        onreply["onreply_route<br/>（仅修改响应，不决定路由）"]
+    end
+    subgraph outgoing ["下游（请求目标）"]
+        ctx["客户端事务<br/>（记住下游目标）"]
+    end
+
+    stx -->|"请求"| rr
+    rr --> trelay
+    trelay --> ctx
+    ctx -->|"响应"| onreply
+    onreply -->|"自动按 Via 转发"| stx
+```
+
+### CANCEL 的处理流程
+
+在 `request_route` 中，CANCEL 的处理极其简洁：
+
+```
+if (is_method("CANCEL")) {
+    if (t_check_trans())
+        t_relay();
+    exit;
+}
+```
+
+`t_check_trans()` 在事务表中查找与 CANCEL 匹配的 INVITE 事务（通过 Via branch、Call-ID 等匹配）。找到后，`t_relay()` 将 CANCEL 发往与原 INVITE 相同的目标——**不需要再跑 LOCATION、RELAY 等路由逻辑**。
+
+如果 `t_check_trans()` 返回失败（没有匹配的 INVITE 事务），CANCEL 被丢弃。这种情况通常意味着 INVITE 事务已经结束（已收到最终响应）或 CANCEL 到达得太早（INVITE 还未被处理）。
+
+### `onreply_route` 的实际作用
+
+`onreply_route` 的名字容易产生误导——它不是路由响应的地方，而是**在响应被自动转发前修改响应内容的钩子**。在 Signal6A 中它做三件事：
+
+```
+onreply_route {
+    // 1. 剥离 VoLTE 的 100rel 头（WebRTC 不支持 PRACK）
+    if (status =~ "18[0-9]") {
+        remove_hf("Require");
+        remove_hf("RSeq");
+    }
+
+    // 2. 修复 NAT 相关的 Contact 地址
+    fix_nated_contact();
+
+    // 3. 让 rtpengine 处理响应中的 SDP Answer
+    if (has_body("application/sdp")) {
+        rtpengine_manage();
+    }
+}
+```
+
+注意 `rtpengine_manage()` 在这里无参数调用。rtpengine 通过 Call-ID 和 From-tag 找到之前在请求路由中创建的媒体会话，自动应用反向转换。
+
+### `failure_route`：最终失败后的备选路由
+
+当事务最终失败（收到 4xx/5xx/6xx 或超时），`failure_route` 提供了一个尝试备选路由的机会。例如：
+
+```
+failure_route[FAIL] {
+    if (t_is_canceled()) exit;  // CANCEL 导致的 487 不需要重试
+
+    if (status == "486") {
+        // 被叫忙，可以尝试转到语音信箱
+        $ru = "sip:voicemail@example.com";
+        t_relay();
+    }
+}
+```
+
+Signal6A 当前未使用 `failure_route`（失败直接返回给主叫），但了解它在调试中有用：如果你看到事务失败后出现了意外的重路由行为，可能是 `failure_route` 在起作用。
+
+### Signal6A CSCF 链中的响应与 CANCEL 处理
+
+把以上概念应用到 Signal6A 的完整 CSCF 链中，看看每个节点在处理响应和 CANCEL 时做了什么：
+
+| 节点 | 对响应的处理（`onreply_route`） | 对 CANCEL 的处理 |
+|------|-------------------------------|-----------------|
+| **Gateway** | 剥离 100rel 头；NAT Contact 修复；rtpengine SDP Answer 处理 | `t_check_trans()` + `t_relay()` |
+| **I-CSCF** | 无特殊处理（响应直接透传） | `t_check_trans()` + `t_relay()` |
+| **S-CSCF** | 无特殊处理（响应直接透传） | `t_check_trans()` + `t_relay()` |
+| **P-CSCF** | IPsec 相关处理（注册回复中创建 SA、剥离 CK/IK） | `t_check_trans()` + `t_relay()`；需通过 uecontact 缓存找到 UE 的 IPsec 地址 |
+
+#### I-CSCF 和 S-CSCF 的响应路由为什么"透明"
+
+I-CSCF 和 S-CSCF 对通话响应（180/200 等）几乎不做任何处理。这是因为它们使用 `t_relay()` 有状态转发 INVITE，`tm` 模块自动将下游响应转发回上游。整个 CSCF 链对于响应来说只是 Via 逐跳回退的管道。
+
+I-CSCF 甚至不插入 Record-Route（它是无状态的路由分发器），所以通话建立后的对话内请求（BYE、re-INVITE）不经过 I-CSCF——只经过插入了 Record-Route 的 P-CSCF、S-CSCF 和 Gateway。
+
+#### P-CSCF 的 CANCEL/BYE 与 UE Contact 缓存
+
+P-CSCF 处理 CANCEL 和 BYE 时面临一个额外挑战：**这些消息可能来自 IMS 核心方向（不经过 IPsec），但需要送达经 IPsec 保护的 UE。**
+
+对于 CANCEL，`tm` 模块自动将其路由到与 INVITE 相同的目标。如果原 INVITE 经 `ipsec_forward()` 解析了 UE 的 IPsec 地址，CANCEL 会走相同路径。
+
+对于 BYE（对话内请求），情况更复杂——BYE 是按 Route 头路由的新请求，不绑定到 INVITE 事务。P-CSCF 的 `uecontact` 哈希表缓存（以 Call-ID 为键存储 UE 的 IPsec 地址）正是为了解决这个问题：
+
+```
+route[WITHINDLG] {
+    if (loose_route()) {
+        // 检查缓存：是否有该 Call-ID 对应的 UE IPsec 地址
+        if ($sht(uecontact=>$ci) != $null) {
+            $du = $sht(uecontact=>$ci);  // 设置目标为缓存的 IPsec 地址
+        }
+        if (is_method("BYE")) {
+            $sht(uecontact=>$ci) = $null;  // 通话结束，清除缓存
+        }
+        route(RELAY);
+    }
+}
+```
+
+::: warning P-CSCF 缓存过期问题
+`uecontact` 缓存的 `autoexpire=120`（120 秒过期）。如果通话超过 2 分钟没有对话内请求（如 re-INVITE、UPDATE），缓存可能过期导致 BYE 无法找到 UE 的 IPsec 地址。长时间通话中如果出现挂断失败，这可能是原因之一。
+:::
+
+### 有状态 vs 无状态的实际影响
+
+理解有状态转发对排障至关重要：
+
+| 场景 | 使用有状态转发时 | 如果用了无状态转发 |
+|------|-----------------|-------------------|
+| INVITE 响应回传 | `tm` 自动按 Via 转发所有响应 | 响应丢失——Proxy 不知道如何匹配 |
+| CANCEL 转发 | `t_check_trans()` 找到匹配事务 | 找不到事务，CANCEL 失败 |
+| 超时处理 | `tm` 按 `fr_timer`/`fr_inv_timer` 生成超时响应 | 无超时机制，请求可能无限等待 |
+| 重传去重 | `t_check_trans()` / `t_precheck_trans()` 识别重传 | 每个重传都当作新请求处理 |
+
+这就是为什么 Signal6A 中所有 `request_route` 的开头都有 `t_precheck_trans()` / `t_check_trans()` 检查——确保 UDP 重传不会被当作新请求反复处理。
+
 ## 核心函数速查
 
 按功能分组，列出 Signal6A 中常用的 Kamailio 函数：
